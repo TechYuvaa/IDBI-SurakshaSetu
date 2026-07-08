@@ -68,9 +68,31 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    vercelApiMock()
+    // vercelApiMock() -- Disabled in favor of dedicated security server
   ],
   server: {
-    port: 8080
+    port: 8080,
+    proxy: {
+      '/api/check-message': {
+        target: 'http://localhost:8081/api/v1/security/check-message',
+        changeOrigin: true,
+        ignorePath: true
+      },
+      '/api/check-transaction': {
+        target: 'http://localhost:8081/api/v1/security/check-transaction',
+        changeOrigin: true,
+        ignorePath: true
+      },
+      '/api/transactions': {
+        target: 'http://localhost:8081/api/v1/security/transactions',
+        changeOrigin: true,
+        ignorePath: true
+      },
+      '/api/auth': {
+        target: 'http://localhost:8081/api/v1/auth',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/auth/, '')
+      }
+    }
   }
 })

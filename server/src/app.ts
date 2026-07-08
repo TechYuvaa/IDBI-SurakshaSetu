@@ -1,0 +1,115 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { prisma } from './config/db.js';
+import { cache } from './config/redis.js';
+import { logger } from './config/logger.js';
+import { helmetConfig, cspNonce, permissionsPolicy } from './middleware/security.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import authRoutes from './routes/authRoutes.js';
+import securityRoutes from './routes/securityRoutes.js';
+import crypto from 'crypto';
+
+// Load Environment variables
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 8081;
+
+// 1. Strict Security Headers (Helmet, CSP Nonces, Permissions-Policy)
+app.use(cspNonce);
+app.use(helmetConfig());
+app.use(permissionsPolicy);
+
+// 2. Strict CORS Configuration
+app.use(cors({
+  origin: ['http://localhost:8080', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-ID', 'X-Trace-ID', 'Idempotency-Key']
+}));
+
+// 3. Strict Payload Parsing Limits (Max 5MB to protect against Zip/Payload DOS)
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
+// 4. Mount Versioned API Routes (API Versioning - Phase 8)
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/security', securityRoutes);
+
+// 5. Observability: Liveness & Readiness Health Checks (Phase 9/11)
+app.get('/health', async (req, res) => {
+  let dbStatus = 'HEALTHY';
+  let redisStatus = cache.isConnected() ? 'HEALTHY' : 'DEGRADED (FALLBACK ON)';
+  
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (e) {
+    dbStatus = 'UNHEALTHY';
+  }
+
+  const isHealthy = dbStatus === 'HEALTHY';
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? 'UP' : 'DOWN',
+    timestamp: new Date().toISOString(),
+    services: {
+      database: dbStatus,
+      cache: redisStatus
+    }
+  });
+});
+
+// 6. Centalized Error Handler Middleware
+app.use(errorHandler);
+
+// Helper helper to hash default seed password
+const hashPassword = async (password: string): Promise<string> => {
+  try {
+    let argon2: any = null;
+    try {
+      argon2 = await import('argon2');
+    } catch(e) {}
+    if (argon2) {
+      return await argon2.hash(password, { type: 2 });
+    }
+  } catch (e) {}
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return `pbkdf2$${salt}$${hash}`;
+};
+
+// Seed default user if database is empty
+const seedDefaultUser = async () => {
+  try {
+    const userCount = await prisma.user.count();
+    if (userCount === 0) {
+      const defaultHash = await hashPassword('password123');
+      await prisma.user.create({
+        data: {
+          email: 'raj.kumar@example.com',
+          passwordHash: defaultHash,
+          role: 'CUSTOMER',
+          profile: {
+            create: {
+              fullName: 'Raj Kumar',
+              location: 'Mumbai, India',
+              panEncrypted: 'ABCPK1234A',
+              aadhaarEncrypted: 'XXXX-XXXX-7890'
+            }
+          }
+        }
+      });
+      logger.info('Database seeded with default user: raj.kumar@example.com / password123');
+    }
+  } catch (err: any) {
+    logger.error(`Database seeding failed: ${err.message}`);
+  }
+};
+
+// Start Server listening port
+const server = app.listen(PORT, async () => {
+  logger.info(`Enterprise Security and Analytics Server listening on port ${PORT}`);
+  await seedDefaultUser();
+});
+
+export default app;

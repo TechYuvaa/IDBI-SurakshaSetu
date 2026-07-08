@@ -1,0 +1,96 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  phone          String?         @unique
+  passwordHash   String
+  role           String          @default("CUSTOMER") // SUPER_ADMIN, ADMIN, AUDITOR, SECURITY_ANALYST, CUSTOMER
+  status         String          @default("ACTIVE") // ACTIVE, LOCKED, SUSPENDED
+  failedAttempts Int             @default(0)
+  lockoutUntil   DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+  
+  profile        Profile?
+  sessions       Session[]
+  authenticators Authenticator[]
+  transactions   Transaction[]
+  auditLogs      AuditLog[]      @relation("UserActor")
+}
+
+model Profile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  fullName         String
+  location         String?
+  panEncrypted     String?
+  aadhaarEncrypted String?
+  timezone         String   @default("UTC")
+  language         String   @default("en")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id                String    @id @default(uuid())
+  userId            String
+  tokenFamily       String    @default(uuid())
+  refreshTokenHash  String    @unique
+  deviceFingerprint String
+  deviceName        String?
+  ipAddress         String
+  expiresAt         DateTime
+  isRevoked         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Authenticator {
+  id                   String  @id @default(uuid())
+  credentialID         String  @unique
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  userId               String
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id           String   @id @default(uuid())
+  userId       String
+  amountVal    Int
+  beneficiary  String
+  device       String
+  ipAddress    String
+  status       String   @default("safe") // safe, flagged
+  riskScore    Int
+  reasons      String   @default("[]") // Stringified JSON array of reasons
+  timestamp    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  timestamp     DateTime @default(now())
+  actorId       String?
+  action        String
+  target        String
+  ip            String
+  location      String?
+  device        String?
+  oldValues     String?  // Stringified JSON
+  newValues     String?  // Stringified JSON
+  riskScore     Int      @default(0)
+  correlationId String
+  traceId       String
+  actor         User?    @relation("UserActor", fields: [actorId], references: [id])
+}
