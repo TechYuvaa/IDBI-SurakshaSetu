@@ -53,7 +53,8 @@ const RadialProgress = ({ value, max = 100, size = 200, strokeWidth = 15 }) => {
           transition={{ duration: 1.5, ease: "easeOut" }}
           strokeLinecap="round"
           style={{
-            filter: `drop-shadow(0 0 8px ${color}80)`
+            filter: `drop-shadow(0 0 8px ${color}80)`,
+            willChange: 'stroke-dashoffset, filter'
           }}
         />
       </svg>

@@ -73,7 +73,8 @@ const AnimatedBridge = ({ status = 'safe', activeTrigger, className }) => {
               opacity: { duration: activeTrigger ? 0.8 : 2.5, repeat: activeTrigger ? 0 : Infinity, ease: "easeInOut" }
             }}
             style={{
-              filter: `drop-shadow(0 0 6px ${currentColor.glow})`
+              filter: `drop-shadow(0 0 6px ${currentColor.glow})`,
+              willChange: 'opacity, filter'
             }}
           />
         </svg>
@@ -85,6 +86,7 @@ const AnimatedBridge = ({ status = 'safe', activeTrigger, className }) => {
             backgroundColor: currentColor.stroke,
             boxShadow: `0 0 12px 3px ${currentColor.glow}`,
             top: 'calc(50% - 7px)',
+            willChange: 'left, opacity, scale, transform'
           }}
           initial={{ left: '0%' }}
           animate={{ 
