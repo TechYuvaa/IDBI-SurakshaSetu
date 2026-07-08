@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { safeFetch } from '../utils/api';
 
 const AuthContext = createContext();
 
@@ -53,13 +54,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const recoverSession = async () => {
       try {
-        const response = await fetch('/api/auth/refresh', {
+        const data = await safeFetch('/api/auth/refresh', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
         
-        if (response.ok) {
-          const data = await response.json();
+        if (data && data.accessToken) {
           setAccessToken(data.accessToken);
           setUser(data.user);
         }
@@ -73,21 +73,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await fetch('/api/auth/login', {
+    return await safeFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Login failed.');
-    }
-    return data; // contains access token or 2fa details
   };
 
   const verify2fa = async (code, tempToken) => {
-    const response = await fetch('/api/auth/verify-2fa', {
+    const data = await safeFetch('/api/auth/verify-2fa', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,11 +90,6 @@ export const AuthProvider = ({ children }) => {
       body: JSON.stringify({ code })
     });
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Verification failed.');
-    }
-
     setAccessToken(data.accessToken);
     setUser(data.user);
     return data;
@@ -108,7 +97,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await safeFetch('/api/auth/logout', { method: 'POST' });
     } catch (e) {
       // ignore
     } finally {
@@ -119,29 +108,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   const requestPasswordReset = async (email) => {
-    const response = await fetch('/api/auth/forgot-password', {
+    return await safeFetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Forgot password request failed.');
-    }
-    return data;
   };
 
   const executePasswordReset = async (email, code, newPassword) => {
-    const response = await fetch('/api/auth/reset-password', {
+    return await safeFetch('/api/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code, newPassword })
     });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Password reset failed.');
-    }
-    return data;
   };
 
   return (

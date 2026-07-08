@@ -3,6 +3,8 @@ import { Terminal, ShieldCheck, ShieldAlert, AlertTriangle, ShieldX, Play, Rotat
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '../components/CountUp';
 import { useSecurity } from '../context/SecurityContext';
+import { safeFetch } from '../utils/api';
+
 
 const PRESETS = [
   {
@@ -73,20 +75,13 @@ const ScamChecker = () => {
 
     try {
       // Initiate API call immediately
-      const response = await fetch('/api/check-message', {
+      const data = await safeFetch('/api/check-message', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ message: cleanMessage }),
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || `HTTP error ${response.status}`);
-      }
-
-      const data = await response.json();
 
       // Ensure that we wait for the word highlighter loop to finish before resolving the screen
       // We estimate scan duration: wordCount * 80ms

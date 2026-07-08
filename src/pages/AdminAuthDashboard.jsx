@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ShieldAlert, Users, Trash2, Key, RefreshCw, Smartphone, Globe, Terminal, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { safeFetch } from '../utils/api';
 
 const AdminAuthDashboard = () => {
   const { accessToken } = useAuth();
@@ -17,16 +18,11 @@ const AdminAuthDashboard = () => {
       setIsLoading(true);
       setError('');
       try {
-        const response = await fetch('/api/admin/metrics', {
+        const data = await safeFetch('/api/admin/metrics', {
           headers: {
             'Authorization': `Bearer ${accessToken}`
           }
         });
-        
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch administrative metrics.');
-        }
 
         setMetrics(data.metrics);
         setSessions(data.sessions);
@@ -46,20 +42,15 @@ const AdminAuthDashboard = () => {
   const handleRevoke = async (sessionId) => {
     if (!window.confirm('Are you sure you want to force-logout this session?')) return;
     try {
-      const response = await fetch(`/api/admin/sessions/${sessionId}`, {
+      await safeFetch(`/api/admin/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
       });
-      if (response.ok) {
-        setRefreshTrigger(prev => prev + 1); // trigger reload
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Failed to revoke session.');
-      }
+      setRefreshTrigger(prev => prev + 1); // trigger reload
     } catch (e) {
-      alert('Network error occurred.');
+      alert(e.message || 'Failed to revoke session.');
     }
   };
 

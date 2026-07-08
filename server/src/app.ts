@@ -26,9 +26,19 @@ app.use(cspNonce);
 app.use(helmetConfig());
 app.use(permissionsPolicy);
 
-// 2. Strict CORS Configuration
+// 2. Dynamic CORS Configuration (Phase 9)
+const allowedOrigins = ['http://localhost:8080', 'http://localhost:5173'];
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:5173'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const isVercel = origin.endsWith('.vercel.app');
+    const isLocal = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+    if (allowedOrigins.includes(origin) || isVercel || isLocal) {
+      callback(null, true);
+    } else {
+      callback(new Error('Blocked by CORS policy.'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-ID', 'X-Trace-ID', 'Idempotency-Key']
@@ -38,10 +48,10 @@ app.use(cors({
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-// 4. Mount Versioned API Routes (API Versioning - Phase 8)
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/security', securityRoutes);
-app.use('/api/v1/admin', adminRoutes);
+// 4. Mount API Routes directly matching client routes
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api', securityRoutes);
 
 // 5. Observability: Liveness & Readiness Health Checks (Phase 9/11)
 app.get('/health', async (req, res) => {

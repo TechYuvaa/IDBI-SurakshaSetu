@@ -3,6 +3,8 @@ import { AlertTriangle, ShieldCheck, ChevronDown, ChevronUp, PlusCircle, Refresh
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '../components/CountUp';
 import { useSecurity } from '../context/SecurityContext';
+import { safeFetch } from '../utils/api';
+
 
 const StatBlock = ({ label, value, highlight = false, isNumeric = false }) => (
   <div className="cyber-panel p-5 flex flex-col justify-between h-28">
@@ -155,20 +157,13 @@ const TransactionMonitor = () => {
     };
 
     try {
-      const response = await fetch('/api/check-transaction', {
+      const data = await safeFetch('/api/check-transaction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(newTx),
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || `HTTP error ${response.status}`);
-      }
-
-      const data = await response.json();
       
       // Delay simulation resolve slightly to feel premium
       setTimeout(() => {
