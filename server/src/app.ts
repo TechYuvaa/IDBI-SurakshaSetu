@@ -139,10 +139,17 @@ const seedDefaultUser = async () => {
   }
 };
 
-// Start Server listening port
-const server = app.listen(PORT, async () => {
-  logger.info(`Enterprise Security and Analytics Server listening on port ${PORT}`);
-  await seedDefaultUser();
-});
+// Start Server listening port only when not running as a Vercel Serverless Function
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, async () => {
+    logger.info(`Enterprise Security and Analytics Server listening on port ${PORT}`);
+    await seedDefaultUser();
+  });
+} else {
+  // On Vercel, run seed check once during module load, failing silently to prevent container boot crash
+  seedDefaultUser().catch(err => {
+    logger.error(`Database seeding failed on Vercel: ${err.message}`);
+  });
+}
 
 export default app;
