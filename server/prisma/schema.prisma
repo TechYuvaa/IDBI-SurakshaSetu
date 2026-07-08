@@ -7,27 +7,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Role {
-  SUPER_ADMIN
-  ADMIN
-  AUDITOR
-  SECURITY_ANALYST
-  CUSTOMER
-}
-
-enum UserStatus {
-  ACTIVE
-  LOCKED
-  SUSPENDED
-}
-
 model User {
   id                String          @id @default(uuid())
   email             String          @unique
   phone             String?         @unique
   passwordHash      String
-  role              Role            @default(CUSTOMER)
-  status            UserStatus      @default(ACTIVE)
+  role              String          @default("CUSTOMER") // SUPER_ADMIN, ADMIN, AUDITOR, SECURITY_ANALYST, CUSTOMER
+  status            String          @default("ACTIVE") // ACTIVE, LOCKED, SUSPENDED
   failedAttempts    Int             @default(0)
   lockoutUntil      DateTime?
   twoFactorSecret   String?
@@ -96,7 +82,7 @@ model Transaction {
   ipAddress    String
   status       String   @default("safe")
   riskScore    Int
-  reasons      String[]
+  reasons      String   @default("[]") // Stringified JSON array for universal database engine compatibility
   timestamp    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -110,8 +96,8 @@ model AuditLog {
   ip            String
   location      String?
   device        String?
-  oldValues     Json?
-  newValues     Json?
+  oldValues     String?  // Stringified JSON
+  newValues     String?  // Stringified JSON
   riskScore     Int      @default(0)
   correlationId String
   traceId       String

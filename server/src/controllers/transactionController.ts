@@ -117,7 +117,7 @@ export const checkTransaction = async (req: Request, res: Response, next: NextFu
           ipAddress: req.ip || '127.0.0.1',
           status,
           riskScore: 100 - finalScore,
-          reasons // Insert native PostgreSQL array directly
+          reasons: JSON.stringify(reasons) // Serialize to JSON string
         }
       });
     }
@@ -149,7 +149,21 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
       take: 50
     });
     
-    return res.status(200).json({ transactions: list });
+    // Parse stringified JSON reasons back to array for cross-database engine safety
+    const parsedList = list.map(item => {
+      let parsedReasons = [];
+      try {
+        parsedReasons = JSON.parse(item.reasons);
+      } catch (e) {
+        parsedReasons = [item.reasons];
+      }
+      return {
+        ...item,
+        reasons: parsedReasons
+      };
+    });
+    
+    return res.status(200).json({ transactions: parsedList });
   } catch (err) {
     next(err);
   }
