@@ -88,13 +88,13 @@ const ForgotPassword = () => {
       <div className="w-full max-w-md space-y-6 z-10">
         
         {/* Development Mode recovery OTP banner */}
-        {process.env.NODE_ENV !== 'production' && demoOtp && step === 2 && (
+        {import.meta.env.VITE_DEMO_MODE !== 'false' && demoOtp && step === 2 && (
           <motion.div 
             initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
             className="cyber-panel p-4 bg-brand-primary/5 border border-brand-primary/30 rounded-lg text-xs space-y-2 relative overflow-hidden"
           >
-            <div className="absolute top-0 right-0 p-1 bg-brand-primary/10 rounded-bl text-[8px] font-mono tracking-widest text-brand-primary font-bold">DEV_RECOVERY</div>
+            <div className="absolute top-0 right-0 p-1 bg-brand-primary/10 rounded-bl text-[8px] font-mono tracking-widest text-brand-primary font-bold">DEMO_RECOVERY</div>
             <h4 className="font-mono font-bold text-brand-primary uppercase tracking-widest flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" /> Generated Recovery OTP
             </h4>

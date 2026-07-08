@@ -117,7 +117,7 @@ export const checkTransaction = async (req: Request, res: Response, next: NextFu
           ipAddress: req.ip || '127.0.0.1',
           status,
           riskScore: 100 - finalScore,
-          reasons: JSON.stringify(reasons) // Serialize array for SQLite
+          reasons // Insert native PostgreSQL array directly
         }
       });
     }
@@ -149,21 +149,7 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
       take: 50
     });
     
-    // Parse stringified JSON reasons back to array (SQLite compat)
-    const parsedList = list.map(item => {
-      let parsedReasons = [];
-      try {
-        parsedReasons = JSON.parse(item.reasons);
-      } catch (e) {
-        parsedReasons = [item.reasons];
-      }
-      return {
-        ...item,
-        reasons: parsedReasons
-      };
-    });
-    
-    return res.status(200).json({ transactions: parsedList });
+    return res.status(200).json({ transactions: list });
   } catch (err) {
     next(err);
   }

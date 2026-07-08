@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -7,19 +7,33 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  AUDITOR
+  SECURITY_ANALYST
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+  SUSPENDED
+}
+
 model User {
   id                String          @id @default(uuid())
   email             String          @unique
   phone             String?         @unique
   passwordHash      String
-  role              String          @default("CUSTOMER") // SUPER_ADMIN, ADMIN, AUDITOR, SECURITY_ANALYST, CUSTOMER
-  status            String          @default("ACTIVE") // ACTIVE, LOCKED, SUSPENDED
+  role              Role            @default(CUSTOMER)
+  status            UserStatus      @default(ACTIVE)
   failedAttempts    Int             @default(0)
   lockoutUntil      DateTime?
   twoFactorSecret   String?
-  twoFactorEnabled  Boolean         @default(true) // Default to true for demo and evaluation
+  twoFactorEnabled  Boolean         @default(true)
   twoFactorType     String          @default("EMAIL") // EMAIL, TOTP
-  backupCodes       String?         // Stringified JSON array of hashed backup codes
+  backupCodes       String?         // Hashed backup codes JSON array
   resetToken        String?
   resetTokenExpires DateTime?
   otpCode           String?
@@ -80,9 +94,9 @@ model Transaction {
   beneficiary  String
   device       String
   ipAddress    String
-  status       String   @default("safe") // safe, flagged
+  status       String   @default("safe")
   riskScore    Int
-  reasons      String   @default("[]") // Stringified JSON array of reasons
+  reasons      String[]
   timestamp    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -96,8 +110,8 @@ model AuditLog {
   ip            String
   location      String?
   device        String?
-  oldValues     String?  // Stringified JSON
-  newValues     String?  // Stringified JSON
+  oldValues     Json?
+  newValues     Json?
   riskScore     Int      @default(0)
   correlationId String
   traceId       String
