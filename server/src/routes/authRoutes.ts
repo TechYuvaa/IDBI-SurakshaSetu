@@ -12,7 +12,14 @@ router.post('/login', authLimiter, auditLogger('User Login'), authController.log
 router.post('/refresh', authLimiter, authController.refreshToken);
 router.post('/logout', authController.logout);
 
-// Protected session management routes
+// 2FA & Verification routes
+router.post('/verify-2fa', authLimiter, authController.verify2fa);
+router.post('/forgot-password', authLimiter, authController.forgotPassword);
+router.post('/reset-password', authLimiter, authController.resetPassword);
+
+// Protected session & MFA management routes
+router.post('/setup-totp', authGuard, authController.setupTotp);
+router.post('/confirm-totp', authGuard, auditLogger('Setup TOTP MFA'), authController.confirmTotp);
 router.post('/logout-all', authGuard, auditLogger('Global Logout'), authController.logoutAll);
 router.get('/sessions', authGuard, authController.getSessions);
 router.delete('/sessions/:sessionId', authGuard, auditLogger('Revoke Session'), authController.revokeSession);

@@ -1,9 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Shield, Activity, ShieldCheck, HelpCircle, Bell, Settings } from 'lucide-react';
+import { LayoutDashboard, Shield, Activity, ShieldCheck, HelpCircle, Bell, Settings, ShieldAlert, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Layout = ({ children }) => {
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { name: 'COMMAND CENTER', path: '/', icon: LayoutDashboard },
@@ -12,7 +14,11 @@ const Layout = ({ children }) => {
     { name: 'SAFETY PROFILE', path: '/profile', icon: ShieldCheck },
   ];
 
-  // Top navbar items with active state based on current route
+  // Append Admin Console if role matches (Phase 8 Admin features)
+  if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
+    navItems.push({ name: 'ADMIN SECURITY', path: '/admin/auth', icon: ShieldAlert });
+  }
+
   const topNavItems = [
     { label: 'PROTOCOL', path: '/' },
     { label: 'MONITOR', path: '/monitor' },
@@ -104,11 +110,21 @@ const Layout = ({ children }) => {
             })}
           </div>
           
-          <div className="flex items-center gap-6 text-brand-text-muted">
-            <button className="hover:text-brand-text transition-colors focus:ring-1 focus:ring-brand-primary focus:outline-none"><Bell className="w-4 h-4" /></button>
-            <button className="hover:text-brand-text transition-colors focus:ring-1 focus:ring-brand-primary focus:outline-none"><Settings className="w-4 h-4" /></button>
+          <div className="flex items-center gap-5 text-brand-text-muted">
+            <button className="hover:text-brand-text transition-colors focus:ring-1 focus:ring-brand-primary focus:outline-none" title="Notifications"><Bell className="w-4 h-4" /></button>
+            <button className="hover:text-brand-text transition-colors focus:ring-1 focus:ring-brand-primary focus:outline-none" title="Settings"><Settings className="w-4 h-4" /></button>
+            
+            {/* Sign Out Button (Phase 2 / Force & Global Logout UI) */}
+            <button 
+              onClick={logout}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[10px] font-mono tracking-wider border border-brand-danger/30 text-brand-danger hover:bg-brand-danger/10 transition-all active:scale-95"
+              title="Force terminate current login session"
+            >
+              <LogOut className="w-3 h-3" /> LOGOUT
+            </button>
+
             <NavLink to="/profile" className="w-7 h-7 rounded-full overflow-hidden border border-brand-primary/30 ml-2 block focus:ring-2 focus:ring-brand-primary focus:outline-none">
-              <img src="https://api.dicebear.com/9.x/notionists/svg?seed=RajKumar&backgroundColor=0A1512" alt="Profile" className="w-full h-full object-cover" />
+              <img src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user?.fullName || 'Guest'}&backgroundColor=0A1512`} alt="Profile" className="w-full h-full object-cover" />
             </NavLink>
           </div>
         </header>

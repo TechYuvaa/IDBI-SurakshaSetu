@@ -8,23 +8,32 @@ generator client {
 }
 
 model User {
-  id             String          @id @default(uuid())
-  email          String          @unique
-  phone          String?         @unique
-  passwordHash   String
-  role           String          @default("CUSTOMER") // SUPER_ADMIN, ADMIN, AUDITOR, SECURITY_ANALYST, CUSTOMER
-  status         String          @default("ACTIVE") // ACTIVE, LOCKED, SUSPENDED
-  failedAttempts Int             @default(0)
-  lockoutUntil   DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  deletedAt      DateTime?
+  id                String          @id @default(uuid())
+  email             String          @unique
+  phone             String?         @unique
+  passwordHash      String
+  role              String          @default("CUSTOMER") // SUPER_ADMIN, ADMIN, AUDITOR, SECURITY_ANALYST, CUSTOMER
+  status            String          @default("ACTIVE") // ACTIVE, LOCKED, SUSPENDED
+  failedAttempts    Int             @default(0)
+  lockoutUntil      DateTime?
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean         @default(true) // Default to true for demo and evaluation
+  twoFactorType     String          @default("EMAIL") // EMAIL, TOTP
+  backupCodes       String?         // Stringified JSON array of hashed backup codes
+  resetToken        String?
+  resetTokenExpires DateTime?
+  otpCode           String?
+  otpExpires        DateTime?
+  otpRetries        Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
   
-  profile        Profile?
-  sessions       Session[]
-  authenticators Authenticator[]
-  transactions   Transaction[]
-  auditLogs      AuditLog[]      @relation("UserActor")
+  profile           Profile?
+  sessions          Session[]
+  authenticators    Authenticator[]
+  transactions      Transaction[]
+  auditLogs         AuditLog[]      @relation("UserActor")
 }
 
 model Profile {
