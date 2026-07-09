@@ -5,7 +5,7 @@ import CountUp from '../components/CountUp';
 import { useSecurity } from '../context/SecurityContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Client-side scam analysis engine — no API, no backend, no network required
+// ScamChecker v2 — fully client-side, zero network calls, no backend dependency
 // ─────────────────────────────────────────────────────────────────────────────
 const analyzeMessage = (text) => {
   const lower = text.toLowerCase();

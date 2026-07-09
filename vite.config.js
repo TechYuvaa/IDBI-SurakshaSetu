@@ -10,12 +10,6 @@ export default defineConfig({
   ],
   server: {
     port: 8080,
-    proxy: {
-      // Unified API proxy forwarding directly to our Express security server
-      '/api': {
-        target: 'http://localhost:8081',
-        changeOrigin: true
-      }
-    }
+    // No proxy — all analysis runs client-side, no backend required
   }
 })
