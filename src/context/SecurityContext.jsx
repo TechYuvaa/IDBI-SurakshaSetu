@@ -24,6 +24,37 @@ export const SecurityProvider = ({ children }) => {
   // Checked messages in this session
   const [checkedMessages, setCheckedMessages] = useState([]);
   
+  // Real-time Notification Feed
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: 'Zero-Trust Protocol Active',
+      message: 'IDBI SuRakshaSetu endpoint defense initialized on current browser session.',
+      type: 'security',
+      severity: 'info',
+      timestamp: '10 mins ago',
+      read: false
+    },
+    {
+      id: 2,
+      title: 'Suspicious Login Intercepted',
+      message: 'Unusual access attempt from IP 185.220.101.43 (TOR Node) successfully blocked.',
+      type: 'security',
+      severity: 'warning',
+      timestamp: '1 hour ago',
+      read: false
+    },
+    {
+      id: 3,
+      title: 'High-Risk Transaction Hold',
+      message: 'UPI Transfer of ₹45,000 to CRYPTO_GATEWAY_V4 placed on hold due to device anomaly.',
+      type: 'tx',
+      severity: 'critical',
+      timestamp: '2 hours ago',
+      read: false
+    }
+  ]);
+  
   // Transaction ledger in this session
   const [transactions, setTransactions] = useState([
     {
@@ -64,15 +95,8 @@ export const SecurityProvider = ({ children }) => {
   const [bridgeStatus, setBridgeStatus] = useState('safe');
 
   // Dynamic Safety Score Calculation
-  // Starts with base baseline of 78 (Moderate Risk).
-  // +1.5 for every scam caught/blocked in the checker.
-  // +0.5 for every safe message checked.
-  // +0.1 for every transaction monitored.
-  // -3.0 for every active anomaly/threat.
   const calculateSafetyScore = () => {
     let score = 78;
-
-    // From session activity:
     const sessionScamsCaught = checkedMessages.filter(m => m.verdict === 'scam').length;
     const sessionSuspiciousCaught = checkedMessages.filter(m => m.verdict === 'suspicious').length;
     const sessionSafeChecked = checkedMessages.filter(m => m.verdict === 'safe').length;
@@ -81,21 +105,36 @@ export const SecurityProvider = ({ children }) => {
     score += (sessionSuspiciousCaught * 1.0);
     score += (sessionSafeChecked * 0.5);
 
-    // From transactions in session:
-    const sessionTransactionsCount = transactions.length - 2; // subtract the initial 2 mock entries
+    const sessionTransactionsCount = transactions.length - 2;
     if (sessionTransactionsCount > 0) {
       score += (sessionTransactionsCount * 0.2);
     }
 
-    // Active threats deduct score
     score -= (activeThreats * 1.5);
     score -= (activeAnomalies * 2.0);
 
-    // Keep it between 0 and 100
     return Math.max(0, Math.min(100, Math.round(score)));
   };
 
   const safetyScore = calculateSafetyScore();
+
+  // Helper to add fresh notifications
+  const pushNotification = (title, message, type, severity) => {
+    const newNotif = {
+      id: Date.now() + Math.random(),
+      title,
+      message,
+      type,
+      severity,
+      timestamp: 'Just now',
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
 
   // Expose function to add a checked message
   const addCheckedMessage = (text, apiResult) => {
@@ -111,10 +150,10 @@ export const SecurityProvider = ({ children }) => {
 
     setCheckedMessages(prev => [newMessage, ...prev]);
 
-    // Update global counters
+    // Update global counters and generate dynamic notification
     if (apiResult.verdict === 'scam') {
       setScamsBlocked(prev => prev + 1);
-      // Prepend to activities
+      
       const newActivity = {
         id: Date.now(),
         type: 'scam',
@@ -127,8 +166,16 @@ export const SecurityProvider = ({ children }) => {
       setBridgeStatus('blocked');
       setLastEventTime(Date.now());
       setTimeout(() => setBridgeStatus('safe'), 2500);
+
+      pushNotification(
+        'Phishing Threat Blocked',
+        `Intercepted phishing message: "${text.substring(0, 45)}..."`,
+        'scam',
+        'critical'
+      );
     } else if (apiResult.verdict === 'suspicious') {
       setActiveThreats(prev => prev + 1);
+      
       const newActivity = {
         id: Date.now(),
         type: 'scam',
@@ -141,6 +188,13 @@ export const SecurityProvider = ({ children }) => {
       setBridgeStatus('flagged');
       setLastEventTime(Date.now());
       setTimeout(() => setBridgeStatus('safe'), 2500);
+
+      pushNotification(
+        'Suspicious Threat Flagged',
+        `Identified moderate risk payload: "${text.substring(0, 45)}..."`,
+        'scam',
+        'warning'
+      );
     } else {
       const newActivity = {
         id: Date.now(),
@@ -154,13 +208,20 @@ export const SecurityProvider = ({ children }) => {
       setBridgeStatus('safe');
       setLastEventTime(Date.now());
       setTimeout(() => setBridgeStatus('safe'), 2500);
+
+      pushNotification(
+        'Message Inspected',
+        'Scam checker scan cleared message payload as safe.',
+        'scam',
+        'info'
+      );
     }
   };
 
   // Expose function to add a simulated/monitored transaction
   const addTransaction = (newTx, apiResult) => {
     const txId = newTx.id;
-    const isHighRisk = apiResult.status === 'flagged';
+    const isHighRisk = apiResult.status === 'highrisk';
 
     const txItem = {
       ...newTx,
@@ -170,14 +231,12 @@ export const SecurityProvider = ({ children }) => {
 
     setTransactions(prev => [txItem, ...prev]);
     
-    // Track for entry animation glow
     setNewlySimulatedIds(prev => {
       const copy = new Set(prev);
       copy.add(txId);
       return copy;
     });
 
-    // Update statistics
     setTotalFlow(prev => prev + newTx.amountVal);
     setAnalyzedCount(prev => prev + 1);
     setTxMonitored(prev => prev + 1);
@@ -186,12 +245,10 @@ export const SecurityProvider = ({ children }) => {
       setThreatsBlocked(prev => prev + 1);
       setActiveAnomalies(prev => prev + 1);
       
-      // Auto-settle active anomaly threat count after 6 seconds
       setTimeout(() => {
         setActiveAnomalies(prev => Math.max(0, prev - 1));
       }, 6000);
 
-      // Prepend to Dashboard Activity Feed
       const newActivity = {
         id: Date.now(),
         type: 'tx',
@@ -204,6 +261,13 @@ export const SecurityProvider = ({ children }) => {
       setBridgeStatus('flagged');
       setLastEventTime(Date.now());
       setTimeout(() => setBridgeStatus('safe'), 2500);
+
+      pushNotification(
+        'Fraud Alert: UPI Hold',
+        `High-Risk transfer of ${newTx.amount} to ${newTx.beneficiary} intercepted and blocked.`,
+        'tx',
+        'critical'
+      );
     } else {
       const newActivity = {
         id: Date.now(),
@@ -217,6 +281,13 @@ export const SecurityProvider = ({ children }) => {
       setBridgeStatus('safe');
       setLastEventTime(Date.now());
       setTimeout(() => setBridgeStatus('safe'), 2500);
+
+      pushNotification(
+        'Transaction Cleared',
+        `UPI payment of ${newTx.amount} to ${newTx.beneficiary} verified and completed.`,
+        'tx',
+        'info'
+      );
     }
   };
 
@@ -237,6 +308,21 @@ export const SecurityProvider = ({ children }) => {
       setBridgeStatus('blocked');
       setLastEventTime(Date.now());
       setTimeout(() => setBridgeStatus('safe'), 2500);
+
+      // Random alert title/message
+      const scamAlerts = [
+        { title: 'Tax Refund Phishing SMS', desc: 'Blocked text containing suspicious IT-Dept link.' },
+        { title: 'Fraudulent Lottery Message', desc: 'Blocked SMS offering unverified reward payout.' },
+        { title: 'KYC Expiry Impersonation', desc: 'Intercepted malicious update verification threat.' }
+      ];
+      const alertItem = scamAlerts[Math.floor(Math.random() * scamAlerts.length)];
+      
+      pushNotification(
+        `Threat Blocked: ${alertItem.title}`,
+        alertItem.desc,
+        'scam',
+        'critical'
+      );
     } else {
       setTxMonitored(prev => prev + 1);
       const isHighRisk = Math.random() > 0.7;
@@ -257,6 +343,20 @@ export const SecurityProvider = ({ children }) => {
         setTimeout(() => {
           setActiveAnomalies(prev => Math.max(0, prev - 1));
         }, 5000);
+
+        pushNotification(
+          'Anomalous Transaction Hold',
+          `POS Payment of ${formattedAmount} placed on hold for multi-factor validation.`,
+          'tx',
+          'warning'
+        );
+      } else {
+        pushNotification(
+          'POS Payment Verified',
+          `Monitored contactless payment of ${formattedAmount} successfully cleared.`,
+          'tx',
+          'info'
+        );
       }
 
       setActivities(prev => [newActivity, ...prev.slice(0, 4)]);
@@ -283,10 +383,12 @@ export const SecurityProvider = ({ children }) => {
         newlySimulatedIds,
         lastEventTime,
         bridgeStatus,
+        notifications,
         addCheckedMessage,
         addTransaction,
         triggerSimulatedBackgroundActivity,
-        setActiveThreats
+        setActiveThreats,
+        markAllNotificationsRead
       }}
     >
       {children}
