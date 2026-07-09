@@ -1,46 +1,65 @@
-// Vercel Serverless Function Entry Point
-// This file MUST be CommonJS (.js) so Vercel's Node.js runtime can execute it directly.
-// It dynamically imports the compiled Express app from server/dist/app.js
-// which is generated during the build step (npm run build --prefix server).
+/**
+ * Vercel Serverless Function - Primary API Handler
+ * 
+ * This file is the single entrypoint for all /api/* requests on Vercel.
+ * It imports the compiled Express app from server/dist/app.js which is
+ * generated during the build step by TypeScript compiler.
+ * 
+ * IMPORTANT: This file must remain as .js (not .ts) so Vercel's
+ * Node.js 20.x runtime can execute it directly without transpilation.
+ */
 
-import { createRequire } from 'module';
-
-// Load dotenv first to ensure DATABASE_URL and JWT_SECRET are available
-// before Prisma or JWT modules initialize.
-const require = createRequire(import.meta.url);
-const path = require('path');
-const dotenv = require('dotenv');
-
-// Load .env from the server directory
-dotenv.config({ path: path.join(process.cwd(), 'server', '.env') });
-dotenv.config({ path: path.join(process.cwd(), '.env') });
-
-// Set VERCEL flag so the Express app skips app.listen() and file-based logging
+// Ensure VERCEL env flag is set before any module loads
 process.env.VERCEL = '1';
 
-// Dynamically import the compiled Express app from server/dist/app.js
-// (TypeScript compiled output, generated during build step)
-let appHandler = null;
+// Cache the Express app instance across warm invocations
+let expressApp = null;
 
-const getApp = async () => {
-  if (appHandler) return appHandler;
-  const mod = await import('../server/dist/app.js');
-  appHandler = mod.default;
-  return appHandler;
-};
+async function loadApp() {
+  if (expressApp) return expressApp;
 
-// Vercel serverless handler - receives every /api/* request
-export default async function handler(req, res) {
   try {
-    const app = await getApp();
-    return app(req, res);
+    // Import compiled Express server from server/dist/app.js
+    // This path is relative to /var/task/ on Vercel (project root)
+    const mod = await import('../server/dist/app.js');
+    expressApp = mod.default;
+    return expressApp;
   } catch (err) {
-    console.error('[Vercel Handler] Failed to load Express app:', err);
-    res.status(500).json({
-      success: false,
-      error: 'Internal Server Error',
-      code: 'HANDLER_LOAD_FAILED',
-      message: process.env.NODE_ENV !== 'production' ? err.message : 'Service temporarily unavailable.'
+    console.error('[Vercel] CRITICAL: Failed to load Express app:', err.message);
+    console.error('[Vercel] Stack:', err.stack);
+    throw err;
+  }
+}
+
+// Export the Vercel-compatible serverless handler
+export default async function handler(req, res) {
+  // Always set JSON content type before anything else
+  // This ensures even crash errors return JSON not HTML
+  res.setHeader('Content-Type', 'application/json');
+
+  try {
+    const app = await loadApp();
+    
+    // Delegate the request to the Express app
+    return await new Promise((resolve, reject) => {
+      app(req, res, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
+  } catch (err) {
+    console.error('[Vercel Handler] Unhandled error:', err.message);
+    
+    // Prevent double-send if Express already wrote headers
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        code: 'FUNCTION_INVOCATION_FAILED',
+        message: process.env.NODE_ENV !== 'production'
+          ? err.message
+          : 'The server encountered an unexpected error. Please try again.'
+      });
+    }
   }
 }

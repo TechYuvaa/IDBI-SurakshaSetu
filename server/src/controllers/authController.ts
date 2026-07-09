@@ -8,40 +8,36 @@ import { authenticator } from 'otplib';
 // Configure otplib details
 authenticator.options = { window: [1, 0] }; // allow 30s clock drift
 
-// Hashing Helpers (Argon2id with PBKDF2 Fallback)
-let argon2: any = null;
-try {
-  argon2 = await import('argon2');
-} catch (e) {
-  logger.warn('Argon2 package not available or failing to load. Falling back to native PBKDF2 crypt.');
-}
 
+// Hashing: try argon2 dynamically (may fail on Vercel due to native binaries), fallback to PBKDF2
 const hashPassword = async (password: string): Promise<string> => {
-  if (argon2) {
-    try {
-      return await argon2.hash(password, { type: 2 });
-    } catch (e) {}
+  try {
+    const argon2 = await import('argon2');
+    return await argon2.hash(password, { type: 2 });
+  } catch {
+    // Vercel / environments without native argon2 binaries
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return `pbkdf2$${salt}$${hash}`;
   }
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-  return `pbkdf2$${salt}$${hash}`;
 };
 
-const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-  if (hash.startsWith('pbkdf2$')) {
-    const parts = hash.split('$');
+const verifyPassword = async (password: string, storedHash: string): Promise<boolean> => {
+  if (storedHash.startsWith('pbkdf2$')) {
+    const parts = storedHash.split('$');
     const salt = parts[1];
     const originalHash = parts[2];
     const testHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
     return originalHash === testHash;
   }
-  if (argon2) {
-    try {
-      return await argon2.verify(hash, password);
-    } catch (e) {}
+  try {
+    const argon2 = await import('argon2');
+    return await argon2.verify(storedHash, password);
+  } catch {
+    return false;
   }
-  return false;
 };
+
 
 // Access Token generator (Short-lived 15m)
 const generateAccessToken = (user: any): string => {

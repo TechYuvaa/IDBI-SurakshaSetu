@@ -2,109 +2,131 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import { prisma } from './config/db.js';
-import { cache } from './config/redis.js';
+import crypto from 'crypto';
 import { logger } from './config/logger.js';
 import { helmetConfig, cspNonce, permissionsPolicy } from './middleware/security.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import securityRoutes from './routes/securityRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
-import crypto from 'crypto';
 
-// Load Environment variables
+// Load environment variables from both root and server/.env
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8081;
 
-// Cookie Parser is critical for reading JWT Refresh Tokens in HttpOnly cookies
+// ─────────────────────────────────────────────
+// 1. Cookie Parser (required for JWT refresh cookies)
+// ─────────────────────────────────────────────
 app.use(cookieParser());
 
-// 1. Strict Security Headers (Helmet, CSP Nonces, Permissions-Policy)
+// ─────────────────────────────────────────────
+// 2. CSP Nonce + Security Headers
+// ─────────────────────────────────────────────
 app.use(cspNonce);
 app.use(helmetConfig());
 app.use(permissionsPolicy);
 
-// 2. Dynamic CORS Configuration (Phase 9)
-const allowedOrigins = ['http://localhost:8080', 'http://localhost:5173'];
+// ─────────────────────────────────────────────
+// 3. CORS — allow Vercel preview + local dev
+// ─────────────────────────────────────────────
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // allow server-to-server
     const isVercel = origin.endsWith('.vercel.app');
-    const isLocal = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
-    if (allowedOrigins.includes(origin) || isVercel || isLocal) {
-      callback(null, true);
-    } else {
-      callback(new Error('Blocked by CORS policy.'));
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (isVercel || isLocal || allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    logger.warn(`CORS blocked origin: ${origin}`);
+    return callback(new Error(`CORS: Origin ${origin} not allowed.`));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-ID', 'X-Trace-ID', 'Idempotency-Key']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-ID', 'X-Trace-ID', 'Idempotency-Key'],
 }));
 
-// 3. Strict Payload Parsing Limits (Max 5MB to protect against Zip/Payload DOS)
+// ─────────────────────────────────────────────
+// 4. Body Parsers (5MB limit)
+// ─────────────────────────────────────────────
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-// 4. Mount API Routes directly matching client routes
+// ─────────────────────────────────────────────
+// 5. API Routes
+// ─────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', securityRoutes);
 
-// 5. Observability: Liveness & Readiness Health Checks (Phase 9/11)
-app.get('/health', async (req, res) => {
-  let dbStatus = 'HEALTHY';
-  let redisStatus = cache.isConnected() ? 'HEALTHY' : 'DEGRADED (FALLBACK ON)';
-  
+// ─────────────────────────────────────────────
+// 6. Health Check
+// ─────────────────────────────────────────────
+app.get('/health', async (_req, res) => {
+  let dbStatus = 'UNCHECKED';
+  let cacheStatus = 'UNKNOWN';
+
   try {
+    const { prisma } = await import('./config/db.js');
     await prisma.$queryRaw`SELECT 1`;
-  } catch (e) {
+    dbStatus = 'HEALTHY';
+  } catch {
     dbStatus = 'UNHEALTHY';
+  }
+
+  try {
+    const { cache } = await import('./config/redis.js');
+    cacheStatus = cache.isConnected() ? 'REDIS' : 'MEMORY_FALLBACK';
+  } catch {
+    cacheStatus = 'UNAVAILABLE';
   }
 
   const isHealthy = dbStatus === 'HEALTHY';
   res.status(isHealthy ? 200 : 503).json({
-    status: isHealthy ? 'UP' : 'DOWN',
+    status: isHealthy ? 'UP' : 'DEGRADED',
     timestamp: new Date().toISOString(),
     services: {
       database: dbStatus,
-      cache: redisStatus
-    }
+      cache: cacheStatus,
+    },
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
   });
 });
 
-// 6. Centralized Error Handler Middleware
+// ─────────────────────────────────────────────
+// 7. Centralized Error Handler (must be last)
+// ─────────────────────────────────────────────
 app.use(errorHandler);
 
-// Helper to hash default seed passwords
+// ─────────────────────────────────────────────
+// 8. Seed default users (safe, lazy, non-blocking)
+// ─────────────────────────────────────────────
 const hashPassword = async (password: string): Promise<string> => {
   try {
-    let argon2: any = null;
-    try {
-      argon2 = await import('argon2');
-    } catch(e) {}
-    if (argon2) {
-      return await argon2.hash(password, { type: 2 });
-    }
-  } catch (e) {}
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-  return `pbkdf2$${salt}$${hash}`;
+    const argon2 = await import('argon2');
+    return await argon2.hash(password, { type: 2 });
+  } catch {
+    // Fallback to PBKDF2 if argon2 native binary unavailable (Vercel)
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return `pbkdf2$${salt}$${hash}`;
+  }
 };
 
-// Seed default users if database is empty
-const seedDefaultUser = async () => {
+const seedDefaultUsers = async (): Promise<void> => {
   try {
-    // 1. Check/create default customer account
-    const customerCount = await prisma.user.count({ where: { email: 'raj.kumar@example.com' } });
-    if (customerCount === 0) {
-      const defaultHash = await hashPassword('password123');
+    const { prisma } = await import('./config/db.js');
+
+    const existingCustomer = await prisma.user.count({ where: { email: 'raj.kumar@example.com' } });
+    if (existingCustomer === 0) {
+      const hash = await hashPassword('password123');
       await prisma.user.create({
         data: {
           email: 'raj.kumar@example.com',
-          passwordHash: defaultHash,
+          passwordHash: hash,
           role: 'CUSTOMER',
           twoFactorEnabled: true,
           twoFactorType: 'EMAIL',
@@ -113,22 +135,21 @@ const seedDefaultUser = async () => {
               fullName: 'Raj Kumar',
               location: 'Mumbai, India',
               panEncrypted: 'ABCPK1234A',
-              aadhaarEncrypted: 'XXXX-XXXX-7890'
+              aadhaarEncrypted: 'XXXX-XXXX-7890',
             }
           }
         }
       });
-      logger.info('Database seeded with customer user: raj.kumar@example.com / password123');
+      logger.info('Seeded default customer: raj.kumar@example.com');
     }
 
-    // 2. Check/create default admin account
-    const adminCount = await prisma.user.count({ where: { email: 'admin@surakshasetu.com' } });
-    if (adminCount === 0) {
-      const adminHash = await hashPassword('Admin@12345');
+    const existingAdmin = await prisma.user.count({ where: { email: 'admin@surakshasetu.com' } });
+    if (existingAdmin === 0) {
+      const hash = await hashPassword('Admin@12345');
       await prisma.user.create({
         data: {
           email: 'admin@surakshasetu.com',
-          passwordHash: adminHash,
+          passwordHash: hash,
           role: 'ADMIN',
           twoFactorEnabled: true,
           twoFactorType: 'EMAIL',
@@ -137,29 +158,32 @@ const seedDefaultUser = async () => {
               fullName: 'System Admin',
               location: 'Bangalore, India',
               panEncrypted: 'ADMIP9999Z',
-              aadhaarEncrypted: 'XXXX-XXXX-1111'
+              aadhaarEncrypted: 'XXXX-XXXX-1111',
             }
           }
         }
       });
-      logger.info('Database seeded with admin user: admin@surakshasetu.com / Admin@12345');
+      logger.info('Seeded default admin: admin@surakshasetu.com');
     }
   } catch (err: any) {
-    logger.error(`Database seeding failed: ${err.message}`);
+    // Non-fatal: log and continue. The app must boot even if seed fails.
+    logger.warn(`[Seed] Skipped: ${err.message}`);
   }
 };
 
-// Start Server listening port only when not running as a Vercel Serverless Function
+// ─────────────────────────────────────────────
+// 9. Start server (local dev) OR export (Vercel)
+// ─────────────────────────────────────────────
 if (process.env.VERCEL !== '1') {
   app.listen(PORT, async () => {
-    logger.info(`Enterprise Security and Analytics Server listening on port ${PORT}`);
-    await seedDefaultUser();
+    logger.info(`Server running on http://localhost:${PORT}`);
+    await seedDefaultUsers();
   });
 } else {
-  // On Vercel, run seed check once during module load, failing silently to prevent container boot crash
-  seedDefaultUser().catch(err => {
-    logger.error(`Database seeding failed on Vercel: ${err.message}`);
-  });
+  // On Vercel: seed lazily after cold start, non-blocking
+  setTimeout(() => {
+    seedDefaultUsers().catch(err => logger.warn(`[Seed] Vercel seed failed: ${err.message}`));
+  }, 2000);
 }
 
 export default app;
