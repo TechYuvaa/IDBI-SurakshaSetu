@@ -114,7 +114,7 @@ const Layout = ({ children }) => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         
         {/* Top Navbar */}
-        <header className="h-16 border-b border-brand-primary/10 bg-[#0d1411]/80 backdrop-blur flex items-center justify-between px-8 shrink-0">
+        <header className="h-16 border-b border-brand-primary/10 bg-[#0d1411]/80 backdrop-blur flex items-center justify-between px-8 shrink-0 relative z-40">
           <div className="flex gap-8 text-[11px] font-mono tracking-widest text-brand-text-muted">
             {topNavItems.map((item) => {
               const isActive = location.pathname === item.path;
