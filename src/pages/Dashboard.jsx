@@ -95,7 +95,7 @@ const Dashboard = () => {
           .ticker-track {
             display: flex;
             width: max-content;
-            animation: ticker-marquee 30s linear infinite;
+            animation: ticker-marquee 80s linear infinite;
             will-change: transform;
           }
           .ticker-track:hover {
