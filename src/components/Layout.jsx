@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Shield, Activity, ShieldCheck, HelpCircle, Bell, Settings, ShieldAlert, LogOut, Check, Info, AlertTriangle, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -51,14 +51,26 @@ const Layout = ({ children }) => {
       {/* Left Sidebar */}
       <aside className="w-64 bg-[#0d1411] border-r border-brand-primary/10 flex flex-col h-screen sticky top-0 shrink-0">
         
-        {/* Logo Area */}
-        <div className="p-6 pb-8 border-b border-brand-primary/10">
-          <h1 className="font-display font-extrabold text-2xl text-brand-primary mb-6">SuRakshaSetu</h1>
-          <div>
-            <h2 className="font-display text-3xl text-brand-primary leading-tight animate-pulse">CYBER<br/>COMMAND</h2>
-            <div className="text-[10px] font-mono text-brand-text-muted mt-2 tracking-widest">ACTIVE PROTOCOL: V4.2</div>
-          </div>
+        {/* Logo Area (Clickable Homepage Link with Glow Hover state) */}
+        <div className="border-b border-brand-primary/10">
+          <Link 
+            to="/" 
+            className="p-6 pb-8 block transition-all duration-300 group hover:bg-brand-surface/20"
+          >
+            <h1 className="font-display font-extrabold text-2xl text-brand-primary mb-6 transition-all duration-300 group-hover:text-brand-primary-light group-hover:drop-shadow-[0_0_8px_rgba(117,230,204,0.45)]">
+              SuRakshaSetu
+            </h1>
+            <div>
+              <h2 className="font-display text-3xl text-brand-primary leading-tight animate-pulse transition-all duration-300 group-hover:text-brand-primary-light">
+                CYBER<br/>COMMAND
+              </h2>
+              <div className="text-[10px] font-mono text-brand-text-muted mt-2 tracking-widest uppercase">
+                ACTIVE PROTOCOL: V4.2
+              </div>
+            </div>
+          </Link>
         </div>
+
 
         {/* Navigation */}
         <nav className="flex-1 py-6">

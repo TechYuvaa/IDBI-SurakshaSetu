@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Phone, MapPin, CreditCard, Edit3, X, Save, Trash2, ShieldCheck, Lock, Smartphone, Bell, ChevronDown, ChevronUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { User, Mail, Phone, MapPin, CreditCard, Edit3, X, Save, Trash2, ShieldCheck, Shield, Lock, Smartphone, Bell, ChevronDown, ChevronUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import CountUp from '../components/CountUp';
 import { useSecurity } from '../context/SecurityContext';
 
@@ -274,9 +274,38 @@ const TIP_CARDS = [
   { id: 2, title: 'Set Transaction Limits', icon: Lock, status: 'action_needed', description: 'You have not set a daily UPI limit. Setting a limit prevents large unauthorized transfers.', action: 'SET LIMIT NOW' },
 ];
 
+const TIERS = {
+  bronze: { name: 'Bronze Shield', min: 0, max: 40, color: 'text-brand-danger', bg: 'bg-brand-danger/10 border-brand-danger/30' },
+  silver: { name: 'Silver Shield', min: 41, max: 70, color: 'text-brand-warning', bg: 'bg-brand-warning/10 border-brand-warning/30' },
+  gold: { name: 'Gold Shield', min: 71, max: 90, color: 'text-brand-accent', bg: 'bg-brand-accent/15 border-brand-accent/30' },
+  guardian: { name: 'Setu Guardian', min: 91, max: 100, color: 'text-brand-primary', bg: 'bg-brand-primary/15 border-brand-primary/30' }
+};
+
+const getTier = (score) => {
+  if (score >= 91) return { ...TIERS.guardian, key: 'guardian' };
+  if (score >= 71) return { ...TIERS.gold, key: 'gold' };
+  if (score >= 41) return { ...TIERS.silver, key: 'silver' };
+  return { ...TIERS.bronze, key: 'bronze' };
+};
+
 /* ── Main Profile Component ── */
 const Profile = () => {
   const { safetyScore, checkedMessages, transactions, activeThreats, activeAnomalies } = useSecurity();
+
+  const activeTier = getTier(safetyScore);
+  const [currentTierKey, setCurrentTierKey] = useState(activeTier.key);
+  const [playLevelUp, setPlayLevelUp] = useState(false);
+
+  useEffect(() => {
+    const calculatedTier = getTier(safetyScore);
+    if (calculatedTier.key !== currentTierKey) {
+      setCurrentTierKey(calculatedTier.key);
+      // Play brief pulse animation on tier upgrade/change
+      setPlayLevelUp(true);
+      const timer = setTimeout(() => setPlayLevelUp(false), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [safetyScore, currentTierKey]);
 
   const [profileData, setProfileData] = useState({
     fullName: 'Raj Kumar',
@@ -429,7 +458,24 @@ const Profile = () => {
                   <CountUp value={safetyScore} />
                 </div>
                 <div className="font-mono text-[9px] tracking-widest text-brand-accent uppercase mt-1">SAFETY SCORE</div>
+                
+                {/* Score Tier Badge */}
+                <motion.div
+                  animate={playLevelUp ? { scale: [1, 1.25, 1], rotate: [0, 5, -5, 0] } : {}}
+                  transition={{ duration: 0.8, ease: 'easeInOut' }}
+                  className={`mt-2.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[8px] font-mono font-bold tracking-wider uppercase ${activeTier.color} ${activeTier.bg}`}
+                  style={{
+                    boxShadow: playLevelUp ? `0 0 15px currentColor` : 'none'
+                  }}
+                >
+                  {activeTier.key === 'bronze' && <Shield className="w-2.5 h-2.5 text-brand-danger" />}
+                  {activeTier.key === 'silver' && <Shield className="w-2.5 h-2.5 text-brand-warning" />}
+                  {activeTier.key === 'gold' && <ShieldCheck className="w-2.5 h-2.5 text-brand-accent" />}
+                  {activeTier.key === 'guardian' && <ShieldCheck className="w-2.5 h-2.5 text-brand-primary animate-pulse" />}
+                  <span>{activeTier.name}</span>
+                </motion.div>
               </div>
+
             </div>
             <div className="text-center w-full">
               <div className={`text-sm font-semibold mb-1 ${statusObj.color}`}>

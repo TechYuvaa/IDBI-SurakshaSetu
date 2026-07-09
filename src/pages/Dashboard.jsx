@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { Shield, ShieldAlert, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
@@ -46,12 +47,96 @@ const Dashboard = () => {
     triggerSimulatedBackgroundActivity
   } = useSecurity();
 
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    const listener = (e) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener('change', listener);
+  }, []);
+
+  // Format real activities and fill in with ambient telemetry logs so the marquee loops seamlessly
+  const getTickerEntries = () => {
+    const formatted = activities.map(act => {
+      const typeLabel = act.status === 'blocked' ? 'Blocked' : act.status === 'flagged' ? 'Flagged' : 'Verified';
+      const amountStr = act.amount ? ` (${act.amount})` : '';
+      return `${typeLabel}: ${act.title}${amountStr} • ${act.time}`;
+    });
+
+    const fillers = [
+      "Secured: Endpoint Zero-Trust validation complete • 1m ago",
+      "Cleared: Local cookie sandboxing initialized • 3m ago",
+      "Audited: 2FA credentials check completed • 5m ago",
+      "Verified: Session token rotation active • 8m ago"
+    ];
+
+    return [...formatted, ...fillers];
+  };
+
+  const tickerEntries = getTickerEntries();
+
   return (
     <div className="space-y-8 pb-10">
-      <header className="mb-8">
+      <header className="mb-6">
         <h1 className="font-display text-4xl font-extrabold text-brand-text mb-2">Security Command Center</h1>
         <p className="text-brand-text-muted text-sm">Real-time fraud prevention and active threat monitoring for your banking profile.</p>
       </header>
+
+      {/* Dynamic Telemetry Live Ticker Strip */}
+      <div className="ticker-wrap w-full py-2.5 overflow-hidden border-y border-brand-primary/10 bg-[#0d1411]/50 backdrop-blur-md rounded-lg font-mono text-[9px] tracking-wider uppercase">
+        {/* Custom CSS for seamless 60fps GPU-accelerated infinite scrolling marquee */}
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes ticker-marquee {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+          }
+          .ticker-track {
+            display: flex;
+            width: max-content;
+            animation: ticker-marquee 30s linear infinite;
+            will-change: transform;
+          }
+          .ticker-track:hover {
+            animation-play-state: paused;
+          }
+        `}} />
+
+        {prefersReducedMotion ? (
+          // Reduced-motion: static fallback of the 3 most recent entries
+          <div className="flex flex-wrap justify-center gap-6 px-4 text-brand-primary">
+            {tickerEntries.slice(0, 3).map((entry, idx) => (
+              <span key={idx} className="flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-brand-primary"></span>
+                {entry}
+              </span>
+            ))}
+          </div>
+        ) : (
+          // Standard motion: seamless infinite marquee
+          <div className="ticker-track flex gap-12">
+            {/* Double mapping to create seamless looping */}
+            <div className="flex gap-12 text-brand-primary">
+              {tickerEntries.map((entry, idx) => (
+                <span key={`a-${idx}`} className="flex items-center gap-2 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-primary/45"></span>
+                  {entry}
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-12 text-brand-primary" aria-hidden="true">
+              {tickerEntries.map((entry, idx) => (
+                <span key={`b-${idx}`} className="flex items-center gap-2 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-primary/45"></span>
+                  {entry}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
 
       {/* Hero Section: Animated Bridge */}
       <section className="mb-8">
