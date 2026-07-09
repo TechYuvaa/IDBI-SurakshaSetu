@@ -3,7 +3,97 @@ import { Terminal, ShieldCheck, ShieldAlert, AlertTriangle, ShieldX, Play, Rotat
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '../components/CountUp';
 import { useSecurity } from '../context/SecurityContext';
-import { safeFetch } from '../utils/api';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client-side scam analysis engine — no API, no backend, no network required
+// ─────────────────────────────────────────────────────────────────────────────
+const analyzeMessage = (text) => {
+  const lower = text.toLowerCase();
+  const reasons = [];
+  let score = 0;
+
+  // Rule 1: Phishing URL patterns
+  const suspiciousUrlPatterns = [
+    /https?:\/\/(?!(?:www\.)?(?:idbi\.com|irdai\.gov\.in|npci\.org\.in))[\w.-]+(?:secure|update|verify|login|bank|kyc|otp|account)[\w./-]*/i,
+    /http:\/\//i,  // plain HTTP (not HTTPS) is suspicious
+    /bit\.ly|tinyurl|t\.co|ow\.ly|goo\.gl/i,
+    /[\w-]+\.(?:xyz|tk|ml|ga|cf|click|loan|info|online|site)(?:\/|$)/i,
+  ];
+  if (suspiciousUrlPatterns.some(p => p.test(text))) {
+    score += 40;
+    reasons.push('Contains a suspicious or shortened URL — possible phishing link');
+  }
+
+  // Rule 2: OTP / PIN / password sharing request
+  if (/(?:share|send|enter|provide|give)\b.{0,30}\b(?:otp|pin|password|passcode|cvv|mpin)/i.test(lower)) {
+    score += 35;
+    reasons.push('Requests OTP, PIN, password, or CVV — banks never ask for these');
+  }
+
+  // Rule 3: Urgency / threat language
+  const urgencyTerms = ['expire today', 'within 24 hours', 'immediate', 'urgent', 'immediately', 'account will be frozen', 'suspend', 'deactivate', 'action required', 'last warning', 'final notice'];
+  const urgencyMatches = urgencyTerms.filter(t => lower.includes(t));
+  if (urgencyMatches.length > 0) {
+    score += Math.min(urgencyMatches.length * 10, 25);
+    reasons.push(`Urgency-pressure language detected: "${urgencyMatches.slice(0, 2).join('", "')}"`);
+  }
+
+  // Rule 4: Bank / KYC impersonation
+  if (/\b(?:idbi|sbi|hdfc|icici|axis|pnb|rbi|irdai|npci|uidai|income tax|it dept)\b/i.test(lower)
+      && /\b(?:click|visit|update|verify|login|submit|confirm|link|open)\b/i.test(lower)) {
+    score += 30;
+    reasons.push('Impersonates a bank or government authority and requests action via link');
+  }
+
+  // Rule 5: Prize / lottery / reward scam
+  if (/\b(?:won|winner|prize|lottery|reward|cash back|cashback|claim your|congratulations)\b/i.test(lower)) {
+    score += 30;
+    reasons.push('Deceptive prize or lottery claim — classic advance-fee fraud pattern');
+  }
+
+  // Rule 6: Credential or Aadhaar / PAN harvesting
+  if (/\b(?:aadhaar|aadhar|pan card|account number|ifsc|debit card|credit card)\b.{0,50}\b(?:share|send|provide|update|enter)/i.test(lower)) {
+    score += 40;
+    reasons.push('Requests sensitive personal/financial identifiers (Aadhaar, PAN, card details)');
+  }
+
+  // Rule 7: Suspicious sender number pattern
+  if (/(?:^|\s)\+?[6-9]\d{9}(?:\s|$)/.test(text) && score > 10) {
+    score += 5;
+    reasons.push('Contains a mobile number in conjunction with suspicious content');
+  }
+
+  // Rule 8: Generic safe OTP (just an OTP notification with no action demanded)
+  const isSafeOtp = /your otp(?! is shared| share)/i.test(lower) && !/click|visit|link|http/i.test(lower);
+  if (isSafeOtp && reasons.length === 0) {
+    score = Math.max(score - 20, 0);
+  }
+
+  // Determine verdict
+  let verdict, confidence, explanation;
+
+  if (score >= 60) {
+    verdict = 'scam';
+    confidence = Math.min(95, 60 + score * 0.35);
+    explanation = 'High-confidence threat detected. Multiple indicators of social engineering, phishing, or credential harvesting were identified. Do not click any links or share any information.';
+  } else if (score >= 25) {
+    verdict = 'suspicious';
+    confidence = Math.min(74, 30 + score * 0.6);
+    explanation = 'Moderate risk signals detected. The message contains patterns commonly associated with fraud, though certainty is not absolute. Exercise caution before taking any action.';
+  } else {
+    verdict = 'safe';
+    confidence = Math.min(92, 80 + (10 - score) * 1.2);
+    explanation = 'No significant threat indicators detected in this payload. The content appears consistent with a legitimate message. Always remain vigilant with unexpected communications.';
+    if (reasons.length === 0) reasons.push('No phishing URLs, OTP demands, or impersonation patterns detected');
+  }
+
+  return {
+    verdict,
+    confidence: Math.round(confidence),
+    reasons,
+    explanation,
+  };
+};
 
 
 const PRESETS = [
@@ -73,38 +163,21 @@ const ScamChecker = () => {
     // Split into individual words
     setParsedWords(cleanMessage.split(/\s+/));
 
-    try {
-      // Initiate API call immediately
-      const data = await safeFetch('/api/check-message', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: cleanMessage }),
-      });
+    // Client-side analysis — no API call needed
+    const data = analyzeMessage(cleanMessage);
 
-      // Ensure that we wait for the word highlighter loop to finish before resolving the screen
-      // We estimate scan duration: wordCount * 80ms
-      const scanDuration = cleanMessage.split(/\s+/).length * 80;
-      
-      setTimeout(() => {
-        setVerdict(data.verdict);
-        setConfidence(data.confidence);
-        setReasons(data.reasons);
-        setExplanation(data.explanation);
-        setIsAnalyzing(false);
-        setAnalysisCompleted(true);
+    // Wait for the word-scan animation to complete before showing results
+    const scanDuration = cleanMessage.split(/\s+/).length * 80;
 
-        // Update global context state
-        addCheckedMessage(cleanMessage, data);
-      }, Math.max(1000, scanDuration)); // Ensure scanning takes at least 1s for feel
-
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'API connection failed. Please check network settings.');
+    setTimeout(() => {
+      setVerdict(data.verdict);
+      setConfidence(data.confidence);
+      setReasons(data.reasons);
+      setExplanation(data.explanation);
       setIsAnalyzing(false);
-      setAnalysisCompleted(false);
-    }
+      setAnalysisCompleted(true);
+      addCheckedMessage(cleanMessage, data);
+    }, Math.max(1200, scanDuration));
   };
 
   const handleReset = () => {

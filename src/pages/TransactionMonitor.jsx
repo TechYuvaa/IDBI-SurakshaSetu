@@ -3,7 +3,64 @@ import { AlertTriangle, ShieldCheck, ChevronDown, ChevronUp, PlusCircle, Refresh
 import { motion, AnimatePresence } from 'framer-motion';
 import CountUp from '../components/CountUp';
 import { useSecurity } from '../context/SecurityContext';
-import { safeFetch } from '../utils/api';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client-side transaction risk engine — no API, no backend required
+// ─────────────────────────────────────────────────────────────────────────────
+const analyzeTransaction = (tx) => {
+  const reasons = [];
+  let score = 0;
+
+  // Rule 1: High value transaction
+  if (tx.amountVal >= 500000) {
+    score += 25;
+    reasons.push(`High-value transfer: ₹${tx.amountVal.toLocaleString('en-IN')} exceeds standard monitoring threshold`);
+  } else if (tx.amountVal >= 100000) {
+    score += 10;
+    reasons.push('Large transaction amount flagged for review');
+  }
+
+  // Rule 2: Unusual hour (11pm–4am)
+  const hour = new Date(tx.timestamp).getHours();
+  if (hour >= 23 || hour <= 4) {
+    score += 30;
+    reasons.push(`Off-hours transaction at ${hour}:00 — unusual banking activity window`);
+  }
+
+  // Rule 3: Unknown / suspicious device
+  if (/unknown|linux|unrecognised/i.test(tx.device)) {
+    score += 30;
+    reasons.push('Transaction initiated from an unrecognised or suspicious device');
+  }
+
+  // Rule 4: Suspicious beneficiary keywords
+  if (/crypto|wallet|exchange|casino|betting|foreign|intl/i.test(tx.beneficiary)) {
+    score += 25;
+    reasons.push('Beneficiary name associated with high-risk category (crypto/gambling/international)');
+  }
+
+  // Determine risk level
+  let status, riskScore, flagReasons;
+  if (score >= 55) {
+    status = 'highrisk';
+    riskScore = Math.min(98, 55 + score * 0.4);
+    flagReasons = reasons.length > 0 ? reasons : ['Multiple anomaly signals detected simultaneously'];
+  } else if (score >= 25) {
+    status = 'medium';
+    riskScore = Math.min(55, 25 + score * 0.5);
+    flagReasons = reasons.length > 0 ? reasons : ['Moderate risk pattern — within acceptable range'];
+  } else {
+    status = 'safe';
+    riskScore = Math.max(2, score * 0.5);
+    flagReasons = ['Transaction parameters within normal operating bounds'];
+  }
+
+  return {
+    status,
+    riskScore: Math.round(riskScore),
+    reasons: flagReasons,
+  };
+};
 
 
 const StatBlock = ({ label, value, highlight = false, isNumeric = false }) => (
@@ -156,26 +213,13 @@ const TransactionMonitor = () => {
       timestamp: d.toISOString()
     };
 
-    try {
-      const data = await safeFetch('/api/check-transaction', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newTx),
-      });
-      
-      // Delay simulation resolve slightly to feel premium
-      setTimeout(() => {
-        addTransaction(newTx, data);
-        setIsLoading(false);
-      }, 800);
+    // Client-side risk analysis — no API call needed
+    const data = analyzeTransaction(newTx);
 
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'API connection failed. Could not analyze transaction.');
+    setTimeout(() => {
+      addTransaction(newTx, data);
       setIsLoading(false);
-    }
+    }, 800);
   };
 
   return (
