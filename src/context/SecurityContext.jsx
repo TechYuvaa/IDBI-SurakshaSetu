@@ -366,7 +366,17 @@ export const SecurityProvider = ({ children }) => {
     }
   };
 
+  // Set up background simulation globally so notifications arrive even if user is on other pages
+  useEffect(() => {
+    const interval = setInterval(() => {
+      triggerSimulatedBackgroundActivity();
+    }, 5000); // 5 seconds for fast hackathon demo updates!
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
+
     <SecurityContext.Provider
       value={{
         scamsBlocked,

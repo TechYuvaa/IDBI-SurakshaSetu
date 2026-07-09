@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Shield, ShieldAlert, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
@@ -46,15 +45,6 @@ const Dashboard = () => {
     lastEventTime,
     triggerSimulatedBackgroundActivity
   } = useSecurity();
-
-  // Run the background simulation event loop every 8 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      triggerSimulatedBackgroundActivity();
-    }, 8000);
-
-    return () => clearInterval(interval);
-  }, [triggerSimulatedBackgroundActivity]);
 
   return (
     <div className="space-y-8 pb-10">
