@@ -9,7 +9,7 @@ import ErrorBoundary from './ErrorBoundary';
 const Layout = ({ children }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { notifications, markAllNotificationsRead } = useSecurity();
+  const { notifications, markAllNotificationsRead, toasts, removeToast, markNotificationRead } = useSecurity();
   
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef(null);
@@ -264,9 +264,74 @@ const Layout = ({ children }) => {
         </main>
       </div>
       
+      {/* Real-time Toast Notifications Container */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((toast) => {
+            const SeverityIcon = 
+              toast.severity === 'critical' ? ShieldAlert :
+              toast.severity === 'warning' ? AlertTriangle : Info;
+
+            const glowColor = 
+              toast.severity === 'critical' ? 'bg-brand-danger' :
+              toast.severity === 'warning' ? 'bg-brand-warning' : 'bg-brand-primary';
+
+            return (
+              <motion.div
+                key={toast.id}
+                initial={{ opacity: 0, y: 30, scale: 0.9, x: 50 }}
+                animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+                exit={{ opacity: 0, x: 100, scale: 0.9 }}
+                transition={{ type: 'spring', damping: 20 }}
+                className="pointer-events-auto cyber-panel p-4 bg-[#0A1512]/95 backdrop-blur-xl border border-brand-primary/20 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.5)] flex gap-3 relative overflow-hidden"
+              >
+                {/* Severity left glow bar */}
+                <div className={`absolute left-0 top-0 h-full w-1 ${glowColor}`} />
+
+                <div className="p-2 rounded-lg bg-[#0d1411] border border-brand-primary/10 shrink-0 h-10 w-10 flex items-center justify-center">
+                  <SeverityIcon className={`w-5 h-5 ${
+                    toast.severity === 'critical' ? 'text-brand-danger' :
+                    toast.severity === 'warning' ? 'text-brand-warning' : 'text-brand-primary'
+                  }`} />
+                </div>
+
+                <div className="flex-1 space-y-1">
+                  <h4 className="text-xs font-bold font-mono tracking-wide text-brand-text uppercase">
+                    {toast.title}
+                  </h4>
+                  <p className="text-[10px] text-brand-text-muted leading-relaxed font-sans">
+                    {toast.message}
+                  </p>
+                  
+                  {/* Action links */}
+                  <div className="flex gap-4 pt-2 font-mono text-[9px] tracking-wider">
+                    <button
+                      onClick={() => {
+                        markNotificationRead(toast.id);
+                        removeToast(toast.id);
+                      }}
+                      className="text-brand-primary hover:underline font-bold"
+                    >
+                      MARK READ
+                    </button>
+                    <button
+                      onClick={() => removeToast(toast.id)}
+                      className="text-brand-text-muted hover:text-brand-text font-bold"
+                    >
+                      DISMISS
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
     </div>
   );
 };
+
 
 
 export default Layout;

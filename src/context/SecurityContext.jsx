@@ -55,7 +55,11 @@ export const SecurityProvider = ({ children }) => {
     }
   ]);
   
+  // Real-time active popup toasts queue
+  const [toasts, setToasts] = useState([]);
+  
   // Transaction ledger in this session
+
   const [transactions, setTransactions] = useState([
     {
       id: 'TXN_99283_X',
@@ -118,10 +122,19 @@ export const SecurityProvider = ({ children }) => {
 
   const safetyScore = calculateSafetyScore();
 
-  // Helper to add fresh notifications
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  const markNotificationRead = (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  // Helper to add fresh notifications and spawn a live popup toast
   const pushNotification = (title, message, type, severity) => {
+    const id = Date.now() + Math.random();
     const newNotif = {
-      id: Date.now() + Math.random(),
+      id,
       title,
       message,
       type,
@@ -130,6 +143,15 @@ export const SecurityProvider = ({ children }) => {
       read: false
     };
     setNotifications(prev => [newNotif, ...prev]);
+
+    // Push toast to active alerts queue
+    const newToast = { id, title, message, type, severity };
+    setToasts(prev => [...prev, newToast]);
+
+    // Dismiss toast after 5 seconds automatically
+    setTimeout(() => {
+      removeToast(id);
+    }, 5000);
   };
 
   const markAllNotificationsRead = () => {
@@ -394,11 +416,15 @@ export const SecurityProvider = ({ children }) => {
         lastEventTime,
         bridgeStatus,
         notifications,
+        toasts,
+        removeToast,
+        markNotificationRead,
         addCheckedMessage,
         addTransaction,
         triggerSimulatedBackgroundActivity,
         setActiveThreats,
         markAllNotificationsRead
+
       }}
     >
       {children}
