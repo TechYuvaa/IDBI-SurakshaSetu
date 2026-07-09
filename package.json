@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm install --prefix server && npm run build --prefix server && npm run prisma:generate --prefix server && vite build",
+    "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
