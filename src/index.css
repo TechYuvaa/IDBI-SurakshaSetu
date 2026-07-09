@@ -21,15 +21,59 @@
 
 @layer base {
   body {
-    background-color: var(--color-brand-bg);
+    background-color: #0A1512;
     color: var(--color-brand-text);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    /* Subtle dot grid background from the images */
-    background-image: radial-gradient(rgba(117, 230, 204, 0.08) 1px, transparent 1px);
+    /* Subtle dot grid background */
+    background-image: radial-gradient(rgba(117, 230, 204, 0.07) 1px, transparent 1px);
     background-size: 24px 24px;
     overflow-x: hidden;
   }
+
+  /* GPU-Accelerated Shifting Mesh Gradients */
+  .mesh-glow-teal {
+    position: fixed;
+    top: -20%;
+    left: -20%;
+    width: 60vw;
+    height: 60vw;
+    background: radial-gradient(circle, rgba(15, 157, 140, 0.08) 0%, transparent 75%);
+    pointer-events: none;
+    z-index: 0;
+    animation: drift-teal 32s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  .mesh-glow-saffron {
+    position: fixed;
+    bottom: -20%;
+    right: -20%;
+    width: 65vw;
+    height: 65vw;
+    background: radial-gradient(circle, rgba(242, 153, 74, 0.045) 0%, transparent 75%);
+    pointer-events: none;
+    z-index: 0;
+    animation: drift-saffron 38s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  @keyframes drift-teal {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    100% { transform: translate3d(8vw, 10vh, 0) scale(1.12); }
+  }
+
+  @keyframes drift-saffron {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    100% { transform: translate3d(-8vw, -12vh, 0) scale(1.08); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mesh-glow-teal, .mesh-glow-saffron {
+      animation: none !important;
+    }
+  }
+
 
   /* Accessibility Focus Rings */
   *:focus-visible {

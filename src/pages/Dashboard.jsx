@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, ShieldAlert, Activity } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Shield, ShieldAlert, Activity, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
 import AnimatedBridge from '../components/AnimatedBridge';
@@ -27,13 +27,79 @@ const StatCard = ({ title, value, icon: Icon, colorClass, delay = 0 }) => {
       </div>
       <div>
         <h3 className="text-brand-text-muted text-[10px] font-mono tracking-widest uppercase mb-1">{title}</h3>
-        <div className="font-mono font-bold text-3xl text-brand-text">
+        <div className="font-display font-bold text-4xl text-brand-text">
           <CountUp value={value} />
         </div>
+
       </div>
     </motion.div>
   );
 };
+
+const ComparisonCard = ({ delay = 0.4 }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.5 }}
+      whileHover={{ y: -3, scale: 1.01 }}
+      className="cyber-panel p-6 h-full flex flex-col justify-between"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="p-2.5 rounded-lg bg-brand-bg border border-brand-primary/20">
+          <Clock className="w-5 h-5 text-brand-primary" />
+        </div>
+        <span className="text-[9px] font-mono text-brand-text-muted flex items-center gap-1.5 uppercase tracking-widest">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse"></span>
+          SPEED TESTING
+        </span>
+      </div>
+
+      <div>
+        <h3 className="text-brand-text-muted text-[10px] font-mono tracking-widest uppercase mb-3">REACTION SPEED</h3>
+        
+        <div className="space-y-3">
+          {/* Human bar */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9px] font-mono text-brand-text-muted">
+              <span>AVG. HUMAN RESPONSE</span>
+              <span>~45.0s</span>
+            </div>
+            <div className="h-2 w-full bg-brand-bg rounded overflow-hidden">
+              <motion.div 
+                initial={{ width: '0%' }}
+                animate={{ width: '90%' }}
+                transition={{ duration: 1.2, ease: 'easeOut', delay: delay + 0.3 }}
+                className="h-full bg-brand-text-muted/30"
+              />
+            </div>
+          </div>
+
+          {/* Setu bar */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9px] font-mono text-brand-primary font-bold">
+              <span>SuRakshaSetu SHIELD</span>
+              <span>~1.2s</span>
+            </div>
+            <div className="h-2 w-full bg-brand-bg rounded overflow-hidden">
+              <motion.div 
+                initial={{ width: '0%' }}
+                animate={{ width: '3%' }}
+                transition={{ duration: 1.2, ease: 'easeOut', delay: delay + 0.3 }}
+                className="h-full bg-brand-primary shadow-[0_0_8px_var(--color-brand-primary)]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[8px] font-mono text-brand-text-muted tracking-wider uppercase mt-4">
+          * Illustrative comparison based on typical manual response delays vs automated node filtering.
+        </p>
+      </div>
+    </motion.div>
+  );
+};
+
 
 const Dashboard = () => {
   const {
@@ -48,6 +114,9 @@ const Dashboard = () => {
   } = useSecurity();
 
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const dashboardRef = useRef(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -56,6 +125,41 @@ const Dashboard = () => {
     mediaQuery.addEventListener('change', listener);
     return () => mediaQuery.removeEventListener('change', listener);
   }, []);
+
+  // Track mouse coordinates over the dashboard container
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (hasTouch) return; // Disable cursor-reactive glow on touch-only devices
+
+    const handleMouseMove = (e) => {
+      if (!dashboardRef.current) return;
+      const rect = dashboardRef.current.getBoundingClientRect();
+      setMousePos({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+    };
+
+    const handleMouseEnter = () => setIsHovered(true);
+    const handleMouseLeave = () => setIsHovered(false);
+
+    const el = dashboardRef.current;
+    if (el) {
+      el.addEventListener('mousemove', handleMouseMove);
+      el.addEventListener('mouseenter', handleMouseEnter);
+      el.addEventListener('mouseleave', handleMouseLeave);
+    }
+
+    return () => {
+      if (el) {
+        el.removeEventListener('mousemove', handleMouseMove);
+        el.removeEventListener('mouseenter', handleMouseEnter);
+        el.removeEventListener('mouseleave', handleMouseLeave);
+      }
+    };
+  }, [prefersReducedMotion]);
 
   // Format real activities and fill in with ambient telemetry logs so the marquee loops seamlessly
   const getTickerEntries = () => {
@@ -78,11 +182,28 @@ const Dashboard = () => {
   const tickerEntries = getTickerEntries();
 
   return (
-    <div className="space-y-8 pb-10">
-      <header className="mb-6">
+    <div ref={dashboardRef} className="space-y-8 pb-10 relative overflow-hidden">
+      {/* Cursor-reactive ambient background glow */}
+      {!prefersReducedMotion && isHovered && (
+        <div 
+          className="absolute pointer-events-none rounded-full transition-opacity duration-500 z-0"
+          style={{
+            width: '500px',
+            height: '500px',
+            background: 'radial-gradient(circle, rgba(15, 157, 140, 0.04) 0%, transparent 70%)',
+            left: 0,
+            top: 0,
+            transform: `translate3d(${mousePos.x - 250}px, ${mousePos.y - 250}px, 0)`,
+            willChange: 'transform',
+          }}
+        />
+      )}
+
+      <header className="mb-6 relative z-10">
         <h1 className="font-display text-4xl font-extrabold text-brand-text mb-2">Security Command Center</h1>
         <p className="text-brand-text-muted text-sm">Real-time fraud prevention and active threat monitoring for your banking profile.</p>
       </header>
+
 
       {/* Dynamic Telemetry Live Ticker Strip */}
       <div className="ticker-wrap w-full py-2.5 overflow-hidden border-y border-brand-primary/10 bg-[#0d1411]/50 backdrop-blur-md rounded-lg font-mono text-[9px] tracking-wider uppercase">
@@ -154,7 +275,7 @@ const Dashboard = () => {
       </section>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 relative z-10">
         <StatCard 
           title="Scams Blocked" 
           value={scamsBlocked} 
@@ -176,7 +297,11 @@ const Dashboard = () => {
           colorClass="var(--color-brand-accent)" 
           delay={0.3} 
         />
+        <ComparisonCard 
+          delay={0.4}
+        />
       </div>
+
 
       {/* Lower Section: Score & Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

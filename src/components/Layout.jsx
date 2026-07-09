@@ -47,7 +47,10 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-brand-bg text-brand-text font-sans">
-      
+      {/* Subtle shifting background mesh glows */}
+      <div className="mesh-glow-teal" />
+      <div className="mesh-glow-saffron" />
+
       {/* Left Sidebar */}
       <aside className="w-64 bg-[#0d1411] border-r border-brand-primary/10 flex flex-col h-screen sticky top-0 shrink-0">
         

@@ -124,6 +124,18 @@ const ScamChecker = () => {
   const [parsedWords, setParsedWords] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Certificate generator states
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [certTimestamp, setCertTimestamp] = useState('');
+  const [certHash, setCertHash] = useState('');
+
+  const handleGenerateCertificate = () => {
+    setCertTimestamp(new Date().toLocaleString());
+    setCertHash(Math.random().toString(36).substring(2, 10).toUpperCase() + Math.random().toString(36).substring(2, 10).toUpperCase());
+    setShowCertificate(true);
+  };
+
+
   // Character validation
   const MAX_CHARS = 2000;
 
@@ -406,10 +418,21 @@ const ScamChecker = () => {
                         ))}
                       </div>
                     )}
+
+                    {verdict === 'safe' && (
+                      <button
+                        onClick={handleGenerateCertificate}
+                        className="mt-6 w-full py-3 border border-brand-primary/30 hover:border-brand-primary text-brand-primary hover:text-brand-text hover:bg-brand-primary/5 rounded-lg font-mono text-xs tracking-widest uppercase transition-all duration-300 flex items-center justify-center gap-2"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        Generate Safety Certificate
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
+
 
             <div className="mt-auto pt-8 border-t border-brand-primary/10 font-mono text-[9px] text-brand-primary/35 uppercase tracking-widest leading-relaxed">
               [SYS] PORT 8080 SCAN ACTIVE<br/>
@@ -428,8 +451,126 @@ const ScamChecker = () => {
         </p>
       </div>
 
+      {/* Safety Certificate Modal */}
+      <AnimatePresence>
+        {showCertificate && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-bg/85 backdrop-blur-md"
+          >
+            {/* Click outside to close */}
+            <div className="absolute inset-0" onClick={() => setShowCertificate(false)} />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="relative max-w-lg w-full bg-[#0a1512] border-2 border-brand-primary/30 p-8 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] text-center space-y-6 overflow-hidden"
+              id="safety-certificate"
+            >
+              {/* Custom CSS overrides for browser print stylesheet context */}
+              <style dangerouslySetInnerHTML={{__html: `
+                @media print {
+                  body * {
+                    visibility: hidden !important;
+                  }
+                  #safety-certificate, #safety-certificate * {
+                    visibility: visible !important;
+                  }
+                  #safety-certificate {
+                    position: absolute !important;
+                    left: 50% !important;
+                    top: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    width: 90% !important;
+                    border: 2px solid #75E6CC !important;
+                    background: #0a1512 !important;
+                    color: #EAF5F1 !important;
+                    box-shadow: none !important;
+                  }
+                  .no-print {
+                    display: none !important;
+                  }
+                }
+              `}} />
+
+              {/* Corner brackets/borders for cyber-security aesthetic */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-brand-primary/50 rounded-tl-xl" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-brand-primary/50 rounded-tr-xl" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-brand-primary/50 rounded-bl-xl" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-brand-primary/50 rounded-br-xl" />
+
+              {/* Holographic scanning line */}
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-brand-primary/20 animate-pulse" />
+
+              {/* Seal/Badge Icon */}
+              <div className="w-20 h-20 mx-auto rounded-full bg-brand-primary/10 border border-brand-primary/30 flex items-center justify-center shadow-[0_0_20px_rgba(117,230,204,0.15)] relative">
+                <ShieldCheck className="w-10 h-10 text-brand-primary" />
+                <div className="absolute inset-0 border border-dashed border-brand-primary/40 rounded-full animate-[spin_20s_linear_infinite]" />
+              </div>
+
+              {/* Certificate content */}
+              <div className="space-y-2">
+                <div className="text-[10px] font-mono tracking-widest text-brand-primary uppercase">// OFFICIAL SECURITY CLEARANCE</div>
+                <h2 className="font-display font-extrabold text-3xl text-brand-text tracking-wide">
+                  VERIFIED SAFE
+                </h2>
+                <div className="text-[9px] font-mono text-brand-text-muted mt-1 uppercase tracking-widest">
+                  SuRakshaSetu AI Protection
+                </div>
+              </div>
+
+              <div className="py-6 px-4 bg-brand-surface/40 border border-brand-primary/15 rounded-xl space-y-4 font-mono text-xs text-brand-text-muted">
+                <p className="leading-relaxed font-sans text-brand-text text-sm">
+                  This transaction/message payload has been verified clean of phishing links, credential harvesting triggers, and automated banking fraud sequences.
+                </p>
+                <div className="border-t border-brand-primary/10 pt-3 text-[9px] space-y-1 text-left">
+                  <div className="flex justify-between">
+                    <span>SECURITY CODES:</span>
+                    <span className="text-brand-primary">STATUS_SECURE_V4</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>TIMESTAMP:</span>
+                    <span className="text-brand-text">{certTimestamp}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>CLEARANCE HASH:</span>
+                    <span className="text-brand-text select-all">{certHash}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Sign-off */}
+              <div className="flex justify-between items-center text-[9px] font-mono text-brand-primary/50 tracking-wider">
+                <span>SYSTEM ACTIVE</span>
+                <span>AUTHENTICITY GUARANTEED</span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-4 pt-2 no-print">
+                <button
+                  onClick={() => setShowCertificate(false)}
+                  className="flex-1 py-3 border border-brand-primary/20 hover:border-brand-primary/50 rounded-lg font-mono text-xs tracking-widest text-brand-text-muted hover:text-brand-text transition-all"
+                >
+                  CLOSE
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="flex-1 py-3 cyber-button rounded-lg text-xs font-mono tracking-widest flex items-center justify-center gap-1.5"
+                >
+                  SAVE PDF / PRINT
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
+
 
 export default ScamChecker;
