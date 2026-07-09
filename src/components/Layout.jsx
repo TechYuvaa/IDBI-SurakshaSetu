@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Shield, Activity, ShieldCheck, HelpCircle, Bell, Settings, ShieldAlert, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import ErrorBoundary from './ErrorBoundary';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -132,17 +133,19 @@ const Layout = ({ children }) => {
         {/* Scrollable Content with Route Transitions */}
         <main className="flex-1 overflow-y-auto p-8 relative">
           <div className="max-w-6xl mx-auto">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
+            <ErrorBoundary>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={location.pathname}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  {children}
+                </motion.div>
+              </AnimatePresence>
+            </ErrorBoundary>
           </div>
         </main>
       </div>
@@ -150,5 +153,6 @@ const Layout = ({ children }) => {
     </div>
   );
 };
+
 
 export default Layout;
