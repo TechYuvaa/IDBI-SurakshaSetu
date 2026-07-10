@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Mail, Phone, MapPin, CreditCard, Edit3, X, Save, Trash2, ShieldCheck, Shield, Lock, Smartphone, Bell, ChevronDown, ChevronUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import CountUp from '../components/CountUp';
