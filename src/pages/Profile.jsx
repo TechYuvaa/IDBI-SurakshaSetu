@@ -350,8 +350,20 @@ const Profile = () => {
   const [showConfirmLimit, setShowConfirmLimit] = useState(false);
   const [showLimitSuccessOverlay, setShowLimitSuccessOverlay] = useState(false);
 
+  // Biometrics settings state variables
+  const [isBiometricDialogOpen, setIsBiometricDialogOpen] = useState(false);
+  const [useFaceId, setUseFaceId] = useState(true);
+  const [useFingerprint, setUseFingerprint] = useState(false);
+  const [requireAlways, setRequireAlways] = useState(true);
+  const [hardwareBind, setHardwareBind] = useState(true);
+  const [isBiometricScanning, setIsBiometricScanning] = useState(false);
+  const [showConfirmBiometrics, setShowConfirmBiometrics] = useState(false);
+  const [showBiometricsSuccessOverlay, setShowBiometricsSuccessOverlay] = useState(false);
+
   const handleTipAction = (id) => {
-    if (id === 2) {
+    if (id === 1) {
+      setIsBiometricDialogOpen(true);
+    } else if (id === 2) {
       setIsLimitDialogOpen(true);
     }
   };
@@ -376,6 +388,36 @@ const Profile = () => {
     setShowLimitSuccessOverlay(true);
     setTimeout(() => setShowLimitSuccessOverlay(false), 2500);
   };
+
+  const handleStartBiometricScan = () => {
+    setIsBiometricScanning(true);
+    setTimeout(() => {
+      setIsBiometricScanning(false);
+      setShowConfirmBiometrics(true);
+    }, 2000); // 2s simulated scan
+  };
+
+  const handleSaveBiometricsConfirm = () => {
+    setTips(prev => prev.map(t => {
+      if (t.id === 1) {
+        return {
+          ...t,
+          status: 'enabled',
+          action: 'MANAGE SETTINGS',
+          description: `Biometrics verified via Secure Enclave chip binding. Policy: ${requireAlways ? 'Require Always' : 'For transfers over ₹10k'}.`
+        };
+      }
+      return t;
+    }));
+
+    setShowConfirmBiometrics(false);
+    setIsBiometricDialogOpen(false);
+
+    // Show success tick popup
+    setShowBiometricsSuccessOverlay(true);
+    setTimeout(() => setShowBiometricsSuccessOverlay(false), 2500);
+  };
+
 
   const handleSave = (updatedData) => {
     setProfileData(updatedData);
@@ -929,9 +971,204 @@ const Profile = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Biometric Settings Dialog */}
+      <AnimatePresence>
+        {isBiometricDialogOpen && (
+
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { if (!isBiometricScanning) setIsBiometricDialogOpen(false); }}
+              className="absolute inset-0 bg-brand-bg/85 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="relative w-full max-w-md cyber-panel bg-[#141D1A]/95 backdrop-blur-md border border-brand-primary/30 p-8 shadow-2xl overflow-y-auto max-h-[90vh] z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-brand-text">Biometric Security</h2>
+                  <p className="text-[10px] font-mono tracking-widest text-brand-text-muted mt-1 uppercase">Secure Enclave Bind</p>
+                </div>
+                {!isBiometricScanning && (
+                  <button 
+                    onClick={() => setIsBiometricDialogOpen(false)}
+                    className="p-1 rounded border border-brand-primary/20 text-brand-text-muted hover:text-brand-text hover:border-brand-primary/50 transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              {isBiometricScanning ? (
+                // Enclave hardware vetting animation screen
+                <div className="flex flex-col items-center justify-center py-10 space-y-6">
+                  <div className="relative w-20 h-20 flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border border-dashed border-brand-primary/40 animate-[spin_8s_linear_infinite]" />
+                    <div className="absolute inset-0 rounded-full border-2 border-brand-primary/20 border-t-brand-primary animate-spin" />
+                    <Smartphone className="w-10 h-10 text-brand-primary animate-pulse" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <h3 className="font-mono text-xs tracking-widest text-brand-primary uppercase animate-pulse">// Vetting Hardware Enclave</h3>
+                    <p className="text-[9px] font-mono text-brand-text-muted uppercase">Registering Biometric Tokens...</p>
+                  </div>
+                </div>
+              ) : (
+                // Form Checklist
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleStartBiometricScan();
+                  }} 
+                  className="space-y-6"
+                >
+                  <div className="space-y-4">
+                    {/* Toggles */}
+                    <div className="flex items-center justify-between p-3.5 bg-brand-bg/50 border border-brand-primary/10 rounded-lg">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-semibold text-brand-text">Face ID Authentication</div>
+                        <div className="text-[10px] text-brand-text-muted">Use facial features mapping verification</div>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={useFaceId} 
+                        onChange={(e) => setUseFaceId(e.target.checked)}
+                        className="w-4 h-4 text-brand-primary bg-brand-bg border-brand-primary/20 rounded accent-brand-primary cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3.5 bg-brand-bg/50 border border-brand-primary/10 rounded-lg">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-semibold text-brand-text">Fingerprint Scanner</div>
+                        <div className="text-[10px] text-brand-text-muted">Use capacitive touch mapping</div>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={useFingerprint} 
+                        onChange={(e) => setUseFingerprint(e.target.checked)}
+                        className="w-4 h-4 text-brand-primary bg-brand-bg border-brand-primary/20 rounded accent-brand-primary cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3.5 bg-brand-bg/50 border border-brand-primary/10 rounded-lg">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-semibold text-brand-text">Hardware Enclave Isolation</div>
+                        <div className="text-[10px] text-brand-text-muted">Lock credentials to local security chip</div>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={hardwareBind} 
+                        onChange={(e) => setHardwareBind(e.target.checked)}
+                        className="w-4 h-4 text-brand-primary bg-brand-bg border-brand-primary/20 rounded accent-brand-primary cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Verification Policy */}
+                    <div>
+                      <label className="text-[9px] font-mono tracking-widest text-brand-text-muted uppercase mb-2.5 block">VERIFICATION POLICY</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { val: true, label: 'Always Require' },
+                          { val: false, label: 'Transfers > ₹10k' }
+                        ].map(policy => (
+                          <button
+                            key={policy.label}
+                            type="button"
+                            onClick={() => setRequireAlways(policy.val)}
+                            className={`py-2.5 rounded border font-mono text-[10px] tracking-wider uppercase transition-all ${
+                              requireAlways === policy.val
+                                ? 'bg-brand-primary/10 border-brand-primary text-brand-primary'
+                                : 'border-brand-primary/10 text-brand-text-muted hover:text-brand-text hover:border-brand-primary/30'
+                            }`}
+                          >
+                            {policy.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[9px] text-brand-text-muted font-sans leading-relaxed text-center">
+                    * Activating biometrics enforces absolute physical authentication for high-value banking routines.
+                  </p>
+
+                  <div className="flex gap-4 pt-4 border-t border-brand-primary/10">
+                    <button
+                      type="button"
+                      onClick={() => setIsBiometricDialogOpen(false)}
+                      className="flex-1 py-3 rounded border border-brand-danger/30 text-brand-danger font-mono text-xs tracking-widest hover:bg-brand-danger/10 transition-all"
+                    >
+                      DISCARD
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!useFaceId && !useFingerprint}
+                      className="flex-1 py-3 rounded font-mono text-xs tracking-widest font-bold bg-brand-primary text-brand-bg hover:bg-brand-primary-dark transition-all shadow-[0_0_15px_rgba(117,230,204,0.3)] disabled:opacity-40"
+                    >
+                      BIND CHIP
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Save Biometrics Confirmation Dialog */}
+      <ConfirmModal
+        isOpen={showConfirmBiometrics}
+        onConfirm={handleSaveBiometricsConfirm}
+        onCancel={() => setShowConfirmBiometrics(false)}
+        title="Link Enclave Keys?"
+        message="Are you sure you want to securely register and bind your physical biometric signature keys to this browser context?"
+        confirmLabel="CONFIRM"
+        confirmColor="bg-brand-primary"
+      />
+
+      {/* Biometrics Success Green Tick Popup Overlay */}
+      <AnimatePresence>
+        {showBiometricsSuccessOverlay && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-brand-bg/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="cyber-panel p-8 max-w-sm w-full bg-[#141D1A] border border-brand-primary/45 rounded-2xl flex flex-col items-center justify-center text-center space-y-4 shadow-[0_0_40px_rgba(117,230,204,0.15)] relative"
+            >
+              {/* Corner decorations for consistent cyber styling */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-brand-primary/30 rounded-tl" />
+              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-brand-primary/30 rounded-tr" />
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-brand-primary/30 rounded-bl" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-brand-primary/30 rounded-br" />
+
+              <div className="w-16 h-16 rounded-full bg-brand-primary/10 border border-brand-primary flex items-center justify-center text-brand-primary relative">
+                <CheckCircle className="w-8 h-8" />
+                <span className="absolute inset-0 rounded-full border border-brand-primary/30 animate-ping opacity-75" />
+              </div>
+              <div>
+                <h3 className="font-display font-extrabold text-2xl text-brand-text">SUCCESS</h3>
+                <p className="text-xs font-mono text-brand-primary mt-1 tracking-wider uppercase">Biometrics Linked Successfully</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+
 
 
 
