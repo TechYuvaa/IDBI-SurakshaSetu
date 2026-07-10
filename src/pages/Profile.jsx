@@ -214,7 +214,7 @@ const EditDialog = ({ isOpen, onClose, profileData, onSave }) => {
 };
 
 /* ── Tip Card ── */
-const TipCard = ({ tip, delay }) => {
+const TipCard = ({ tip, delay, onActionClick }) => {
   const [expanded, setExpanded] = useState(false);
   const isActionNeeded = tip.status === 'action_needed';
   const colorClass = isActionNeeded ? 'text-brand-accent' : 'text-brand-primary';
@@ -255,9 +255,12 @@ const TipCard = ({ tip, delay }) => {
             >
               <div className="p-4">
                 <p className="text-xs text-brand-text-muted mb-3">{tip.description}</p>
-                <button className={`px-4 py-2 rounded text-[10px] font-mono tracking-widest font-bold transition-colors ${
-                  isActionNeeded ? 'bg-brand-accent text-brand-bg' : 'border border-brand-primary text-brand-primary hover:bg-brand-primary/10'
-                }`}>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onActionClick && onActionClick(); }}
+                  className={`px-4 py-2 rounded text-[10px] font-mono tracking-widest font-bold transition-colors ${
+                    isActionNeeded ? 'bg-brand-accent text-brand-bg' : 'border border-brand-primary text-brand-primary hover:bg-brand-primary/10'
+                  }`}
+                >
                   {tip.action}
                 </button>
               </div>
@@ -268,6 +271,7 @@ const TipCard = ({ tip, delay }) => {
     </motion.div>
   );
 };
+
 
 const TIP_CARDS = [
   { id: 1, title: 'Enable Biometric Authentication', icon: Smartphone, status: 'enabled', description: 'Use FaceID or Fingerprint to authorize high-value transactions.', action: 'MANAGE SETTINGS' },
@@ -334,9 +338,49 @@ const Profile = () => {
   const [showConfirmSaveAccount, setShowConfirmSaveAccount] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
 
+  // Recommendations tips state
+  const [tips, setTips] = useState([
+    { id: 1, title: 'Enable Biometric Authentication', icon: Smartphone, status: 'enabled', description: 'Use FaceID or Fingerprint to authorize high-value transactions.', action: 'MANAGE SETTINGS' },
+    { id: 2, title: 'Set Transaction Limits', icon: Lock, status: 'action_needed', description: 'You have not set a daily UPI limit. Setting a limit prevents large unauthorized transfers.', action: 'SET LIMIT NOW' },
+  ]);
+
+  // Transaction limits state variables
+  const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false);
+  const [transactionLimit, setTransactionLimit] = useState(50000);
+  const [showConfirmLimit, setShowConfirmLimit] = useState(false);
+  const [showLimitSuccessOverlay, setShowLimitSuccessOverlay] = useState(false);
+
+  const handleTipAction = (id) => {
+    if (id === 2) {
+      setIsLimitDialogOpen(true);
+    }
+  };
+
+  const handleSaveLimitConfirm = () => {
+    setTips(prev => prev.map(t => {
+      if (t.id === 2) {
+        return {
+          ...t,
+          status: 'enabled',
+          action: 'MODIFY LIMIT',
+          description: `Daily transaction limit is secured and capped at ₹${transactionLimit.toLocaleString('en-IN')}.`
+        };
+      }
+      return t;
+    }));
+
+    setShowConfirmLimit(false);
+    setIsLimitDialogOpen(false);
+
+    // Show success dialog
+    setShowLimitSuccessOverlay(true);
+    setTimeout(() => setShowLimitSuccessOverlay(false), 2500);
+  };
+
   const handleSave = (updatedData) => {
     setProfileData(updatedData);
   };
+
 
   const handleSaveAccountConfirm = () => {
     const last4 = newAccountNumber.slice(-4);
@@ -569,9 +613,15 @@ const Profile = () => {
               <Bell className="w-3.5 h-3.5" /> Recommendations
             </h3>
             <div className="space-y-3">
-              {TIP_CARDS.map((tip, i) => (
-                <TipCard key={tip.id} tip={tip} delay={0.2 + i * 0.1} />
+              {tips.map((tip, i) => (
+                <TipCard 
+                  key={tip.id} 
+                  tip={tip} 
+                  delay={0.2 + i * 0.1} 
+                  onActionClick={() => handleTipAction(tip.id)} 
+                />
               ))}
+
             </div>
           </div>
         </div>
@@ -748,9 +798,141 @@ const Profile = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Set Transaction Limits Dialog */}
+      <AnimatePresence>
+        {isLimitDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLimitDialogOpen(false)}
+              className="absolute inset-0 bg-brand-bg/80 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="relative w-full max-w-md cyber-panel bg-[#141D1A]/95 backdrop-blur-md border border-brand-primary/30 p-8 shadow-2xl overflow-y-auto max-h-[90vh] z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-brand-text">Set Transaction Limit</h2>
+                  <p className="text-[10px] font-mono tracking-widest text-brand-text-muted mt-1 uppercase">UPI & Digital Caps</p>
+                </div>
+                <button 
+                  onClick={() => setIsLimitDialogOpen(false)}
+                  className="p-1 rounded border border-brand-primary/20 text-brand-text-muted hover:text-brand-text hover:border-brand-primary/50 transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setShowConfirmLimit(true);
+                }} 
+                className="space-y-6"
+              >
+                <div className="text-center py-6 bg-brand-bg/50 border border-brand-primary/10 rounded-xl">
+                  <div className="text-[9px] font-mono text-brand-text-muted uppercase tracking-wider mb-2">DAILY EXPENDITURE CAP</div>
+                  <div className="font-display font-extrabold text-4xl text-brand-primary">
+                    ₹{transactionLimit.toLocaleString('en-IN')}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[9px] font-mono text-brand-text-muted uppercase">
+                    <span>Min: ₹5,000</span>
+                    <span>Max: ₹5,00,000</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="5000" 
+                    max="500000" 
+                    step="5000" 
+                    value={transactionLimit} 
+                    onChange={(e) => setTransactionLimit(Number(e.target.value))} 
+                    className="w-full h-1.5 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-primary border border-brand-primary/20"
+                  />
+                </div>
+
+                <p className="text-[10px] text-brand-text-muted font-sans leading-relaxed text-center">
+                  * Restricting your daily transaction limit mitigates financial vulnerability during SIM Swap or Session Hijack threat loops.
+                </p>
+
+                <div className="flex gap-4 pt-4 border-t border-brand-primary/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsLimitDialogOpen(false)}
+                    className="flex-1 py-3 rounded border border-brand-danger/30 text-brand-danger font-mono text-xs tracking-widest hover:bg-brand-danger/10 transition-all"
+                  >
+                    DISCARD
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 rounded font-mono text-xs tracking-widest font-bold bg-brand-primary text-brand-bg hover:bg-brand-primary-dark transition-all shadow-[0_0_15px_rgba(117,230,204,0.3)]"
+                  >
+                    SAVE LIMIT
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Save Limit Confirmation Dialog */}
+      <ConfirmModal
+        isOpen={showConfirmLimit}
+        onConfirm={handleSaveLimitConfirm}
+        onCancel={() => setShowConfirmLimit(false)}
+        title="Set Transaction Limit?"
+        message={`Are you sure you want to securely restrict and cap your daily digital banking transfers to ₹${transactionLimit.toLocaleString('en-IN')}?`}
+        confirmLabel="CONFIRM"
+        confirmColor="bg-brand-primary"
+      />
+
+      {/* Limit Success Green Tick Popup Overlay */}
+      <AnimatePresence>
+        {showLimitSuccessOverlay && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-brand-bg/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="cyber-panel p-8 max-w-sm w-full bg-[#141D1A] border border-brand-primary/45 rounded-2xl flex flex-col items-center justify-center text-center space-y-4 shadow-[0_0_40px_rgba(117,230,204,0.15)] relative"
+            >
+              {/* Corner decorations for consistent cyber styling */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-brand-primary/30 rounded-tl" />
+              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-brand-primary/30 rounded-tr" />
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-brand-primary/30 rounded-bl" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-brand-primary/30 rounded-br" />
+
+              <div className="w-16 h-16 rounded-full bg-brand-primary/10 border border-brand-primary flex items-center justify-center text-brand-primary relative">
+                <CheckCircle className="w-8 h-8" />
+                <span className="absolute inset-0 rounded-full border border-brand-primary/30 animate-ping opacity-75" />
+              </div>
+              <div>
+                <h3 className="font-display font-extrabold text-2xl text-brand-text">SUCCESS</h3>
+                <p className="text-xs font-mono text-brand-primary mt-1 tracking-wider uppercase">Limit Configured Successfully</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+
 
 
 export default Profile;
