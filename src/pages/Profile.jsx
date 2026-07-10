@@ -317,9 +317,54 @@ const Profile = () => {
   });
   const [isEditOpen, setIsEditOpen] = useState(false);
 
+  // Accounts state management
+  const [accounts, setAccounts] = useState([
+    { id: 1, bankName: 'IDBI Bank', nickname: 'IDBI Bank Savings', number: 'XXXX-XXXX-XXXX-3456', isPrimary: true },
+    { id: 2, bankName: 'HDFC', nickname: 'HDFC Current', number: 'XXXX-XXXX-XXXX-9921', isPrimary: false }
+  ]);
+  
+  // Account dialog states
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [newBankName, setNewBankName] = useState('');
+  const [newAccountType, setNewAccountType] = useState('savings');
+  const [newAccountNumber, setNewAccountNumber] = useState('');
+  const [newIfscCode, setNewIfscCode] = useState('');
+
+  // Confirmation / success popups
+  const [showConfirmSaveAccount, setShowConfirmSaveAccount] = useState(false);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+
   const handleSave = (updatedData) => {
     setProfileData(updatedData);
   };
+
+  const handleSaveAccountConfirm = () => {
+    const last4 = newAccountNumber.slice(-4);
+    const maskedNumber = `XXXX-XXXX-XXXX-${last4 || '9999'}`;
+    const newAcc = {
+      id: Date.now(),
+      bankName: newBankName || 'Unknown Bank',
+      nickname: `${newBankName || 'Unknown Bank'} ${newAccountType === 'savings' ? 'Savings' : 'Current'}`,
+      number: maskedNumber,
+      isPrimary: false
+    };
+    setAccounts(prev => [...prev, newAcc]);
+    
+    // Close dialogues
+    setShowConfirmSaveAccount(false);
+    setIsAddAccountOpen(false);
+
+    // Trigger Success Green Tick Overlay
+    setShowSuccessOverlay(true);
+    setTimeout(() => setShowSuccessOverlay(false), 2500);
+
+    // Reset inputs
+    setNewBankName('');
+    setNewAccountNumber('');
+    setNewIfscCode('');
+    setNewAccountType('savings');
+  };
+
 
   // Determine Risk Category based on score
   const getSecurityStatus = () => {
@@ -399,35 +444,42 @@ const Profile = () => {
             </h3>
 
             <div className="space-y-4">
-              <div className="p-4 rounded-lg border border-brand-primary/30 bg-brand-primary/5 flex items-center justify-between hover:border-brand-primary/50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-brand-bg border border-brand-primary/20 flex items-center justify-center">
-                    <span className="font-display font-bold text-brand-primary text-sm">IDBI</span>
+              {accounts.map(acc => (
+                <div 
+                  key={acc.id} 
+                  className={`p-4 rounded-lg border flex items-center justify-between hover:border-brand-primary/50 transition-colors ${
+                    acc.isPrimary 
+                      ? 'border-brand-primary/30 bg-brand-primary/5' 
+                      : 'border-brand-primary/10 bg-brand-bg/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-brand-bg border border-brand-primary/20 flex items-center justify-center">
+                      <span className={`font-display font-bold text-sm ${acc.isPrimary ? 'text-brand-primary' : 'text-brand-text-muted'}`}>
+                        {acc.bankName.substring(0, 4).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-brand-text font-medium">{acc.nickname}</h4>
+                      <div className="text-[10px] font-mono text-brand-text-muted tracking-widest">{acc.number}</div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-brand-text font-medium">IDBI Bank Savings</h4>
-                    <div className="text-[10px] font-mono text-brand-text-muted tracking-widest">XXXX-XXXX-XXXX-3456</div>
-                  </div>
+                  {acc.isPrimary && (
+                    <span className="px-2.5 py-1 rounded text-[9px] font-mono tracking-widest bg-brand-primary/20 text-brand-primary border border-brand-primary/30">
+                      Primary
+                    </span>
+                  )}
                 </div>
-                <span className="px-2.5 py-1 rounded text-[9px] font-mono tracking-widest bg-brand-primary/20 text-brand-primary border border-brand-primary/30">Primary</span>
-              </div>
+              ))}
 
-              <div className="p-4 rounded-lg border border-brand-primary/10 bg-brand-bg/50 flex items-center justify-between hover:border-brand-primary/30 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-brand-bg border border-brand-primary/20 flex items-center justify-center">
-                    <span className="font-display font-bold text-brand-text-muted text-sm">HDFC</span>
-                  </div>
-                  <div>
-                    <h4 className="text-brand-text font-medium">HDFC Current</h4>
-                    <div className="text-[10px] font-mono text-brand-text-muted tracking-widest">XXXX-XXXX-XXXX-9921</div>
-                  </div>
-                </div>
-              </div>
-
-              <button className="w-full p-4 rounded-lg border border-dashed border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5 hover:border-brand-primary/50 transition-all flex justify-center items-center gap-2 text-sm font-mono tracking-widest">
+              <button 
+                onClick={() => setIsAddAccountOpen(true)}
+                className="w-full p-4 rounded-lg border border-dashed border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5 hover:border-brand-primary/50 transition-all flex justify-center items-center gap-2 text-sm font-mono tracking-widest"
+              >
                 + Add New Account
               </button>
             </div>
+
           </div>
         </div>
 
@@ -532,8 +584,173 @@ const Profile = () => {
         profileData={profileData}
         onSave={handleSave}
       />
+
+      {/* Add New Linked Account Dialog */}
+      <AnimatePresence>
+        {isAddAccountOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddAccountOpen(false)}
+              className="absolute inset-0 bg-brand-bg/80 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="relative w-full max-w-md cyber-panel bg-[#141D1A]/95 backdrop-blur-md border border-brand-primary/30 p-8 shadow-2xl overflow-y-auto max-h-[90vh] z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-brand-text">Linked Accounts</h2>
+                  <p className="text-[10px] font-mono tracking-widest text-brand-text-muted mt-1 uppercase">ADD BANK ACCOUNT</p>
+                </div>
+                <button 
+                  onClick={() => setIsAddAccountOpen(false)}
+                  className="p-1 rounded border border-brand-primary/20 text-brand-text-muted hover:text-brand-text hover:border-brand-primary/50 transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setShowConfirmSaveAccount(true);
+                }} 
+                className="space-y-5"
+              >
+                <div>
+                  <label className="text-[9px] font-mono tracking-widest text-brand-text-muted uppercase mb-2 block">BANK NAME</label>
+                  <input
+                    type="text"
+                    required
+                    value={newBankName}
+                    onChange={(e) => setNewBankName(e.target.value)}
+                    placeholder="e.g. IDBI Bank, State Bank of India"
+                    className="cyber-input w-full px-4 py-3 rounded font-mono text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-mono tracking-widest text-brand-text-muted uppercase mb-2 block">ACCOUNT TYPE</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['savings', 'current'].map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setNewAccountType(type)}
+                        className={`py-2.5 rounded border font-mono text-[10px] tracking-wider uppercase transition-all ${
+                          newAccountType === type
+                            ? 'bg-brand-primary/10 border-brand-primary text-brand-primary'
+                            : 'border-brand-primary/10 text-brand-text-muted hover:text-brand-text hover:border-brand-primary/30'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-mono tracking-widest text-brand-text-muted uppercase mb-2 block">ACCOUNT NUMBER</label>
+                  <input
+                    type="text"
+                    required
+                    pattern="[0-9]{9,18}"
+                    title="Account number should be 9 to 18 digits"
+                    value={newAccountNumber}
+                    onChange={(e) => setNewAccountNumber(e.target.value)}
+                    placeholder="e.g. 987654321012"
+                    className="cyber-input w-full px-4 py-3 rounded font-mono text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-mono tracking-widest text-brand-text-muted uppercase mb-2 block">IFSC CODE</label>
+                  <input
+                    type="text"
+                    required
+                    pattern="^[A-Z]{4}0[A-Z0-9]{6}$"
+                    title="IFSC should be 11 characters (e.g. IBKL0000123)"
+                    value={newIfscCode}
+                    onChange={(e) => setNewIfscCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. IBKL0000123"
+                    className="cyber-input w-full px-4 py-3 rounded font-mono text-xs uppercase"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4 border-t border-brand-primary/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddAccountOpen(false)}
+                    className="flex-1 py-3 rounded border border-brand-danger/30 text-brand-danger font-mono text-xs tracking-widest hover:bg-brand-danger/10 transition-all"
+                  >
+                    DISCARD
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 rounded font-mono text-xs tracking-widest font-bold bg-brand-primary text-brand-bg hover:bg-brand-primary-dark transition-all shadow-[0_0_15px_rgba(117,230,204,0.3)]"
+                  >
+                    SAVE SECURELY
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Save Account Confirmation Dialog */}
+      <ConfirmModal
+        isOpen={showConfirmSaveAccount}
+        onConfirm={handleSaveAccountConfirm}
+        onCancel={() => setShowConfirmSaveAccount(false)}
+        title="Link New Account?"
+        message="Are you sure you want to securely register and link this bank account to your SuRakshaSetu profile?"
+        confirmLabel="CONFIRM"
+        confirmColor="bg-brand-primary"
+      />
+
+      {/* Success Green Tick Popup Overlay */}
+      <AnimatePresence>
+        {showSuccessOverlay && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-brand-bg/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="cyber-panel p-8 max-w-sm w-full bg-[#141D1A] border border-brand-primary/45 rounded-2xl flex flex-col items-center justify-center text-center space-y-4 shadow-[0_0_40px_rgba(117,230,204,0.15)] relative"
+            >
+              {/* Corner decorations for consistent cyber styling */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-brand-primary/30 rounded-tl" />
+              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-brand-primary/30 rounded-tr" />
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-brand-primary/30 rounded-bl" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-brand-primary/30 rounded-br" />
+
+              <div className="w-16 h-16 rounded-full bg-brand-primary/10 border border-brand-primary flex items-center justify-center text-brand-primary relative">
+                <CheckCircle className="w-8 h-8" />
+                <span className="absolute inset-0 rounded-full border border-brand-primary/30 animate-ping opacity-75" />
+              </div>
+              <div>
+                <h3 className="font-display font-extrabold text-2xl text-brand-text">SUCCESS</h3>
+                <p className="text-xs font-mono text-brand-primary mt-1 tracking-wider uppercase">Account Added Successfully</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+
 
 export default Profile;
